@@ -1,0 +1,255 @@
+<!--
+##################################################################################################################################
+VERSIONING
+##################################################################################################################################
+$Revision$
+$Date$
+##################################################################################################################################
+-->
+<project name="Build" default="all" basedir="." xmlns:if="ant:if" xmlns:unless="ant:unless">
+        
+    <!-- #################################################################################################### -->
+    <!-- Path specifiers -->
+    <!-- #################################################################################################### -->
+      
+    <property name="libDir" value="lib"/>
+    <property name="buildDir" value="build"/>
+    <property name="deployDir" value="deploy"/>
+    <property name="sourceDir" value="src"/>
+    
+    <!-- #################################################################################################### -->
+    <!-- Load Ant extensions -->
+    <!-- #################################################################################################### -->    
+        
+    <!-- ant-contrib -->
+    <taskdef classpath="${libDir}/ant-contrib-0.6.jar" resource="net/sf/antcontrib/antcontrib.properties"/>     
+    
+    <!-- #################################################################################################### -->
+    <!-- Preparation tasks -->
+    <!-- #################################################################################################### -->    
+        
+    <!-- target to autodetect runtime environement -->
+    <target name="target.auto" unless="targetConfig">    
+      <property name="weblogicDir" value="${oracle.home}/.." />       
+      <switch value="${java.specification.version}">
+        <case value="1.7">
+           <property name="targetConfig" value="12.1.3"/>
+           <property name="javaHomeDir" value="${java.home}/.." />
+        </case>
+        <case value="1.8">
+           <property name="targetConfig" value="12.2.1"/>
+           <property name="javaHomeDir" value="${java.home}/.." />
+        </case>
+        <case value="17">
+           <property name="targetConfig" value="14.1.2"/>
+           <property name="javaHomeDir" value="${java.home}" />
+        </case>
+        <case value="21">
+           <property name="targetConfig" value="14.1.2"/>
+           <property name="javaHomeDir" value="${java.home}" />
+        </case>
+        <default>
+           <fail message="Unsupported java version: ${java.specification.version}" />
+        </default>
+      </switch>      
+    </target>    
+    
+    <!-- target to force fmw 12.1.3 runtime environment -->
+    <target name="target.1213">
+       <property name="targetConfig" value="12.1.3"/>
+    </target>
+
+    <!-- target to force fmw 12.2.1 runtime environment -->
+    <target name="target.1221">
+       <property name="targetConfig" value="12.2.1"/>
+    </target>
+
+    <!-- target to force fmw 14.1.2 runtime environment -->
+    <target name="target.1412">
+       <property name="targetConfig" value="14.1.2"/>
+    </target>
+    
+    <!-- target to prepare runtime environment properties -->
+    <target name="prepare" depends="target.auto">         
+                           
+        <!-- ==================================================================================================== -->
+        <!-- Target specific properties   -->
+        <!-- ==================================================================================================== -->
+        
+        <echo message="Selected target: ${targetConfig}"/>
+        
+        <switch value="${targetConfig}">
+          <case value="12.1.3">
+            <property name="shadedLibraries" value="false"/>
+            <property name="weblogicVersion" value="12.1.3"/>
+            <property name="javaHomeDir" value="C:/Programmi/Java/jdk1.7"/>
+            <property name="weblogicDir" value="C:/Oracle/Middleware/12.1.3"/>   
+            <property name="targetLibraries" value="target-libraries-12.1.3"/>
+            <property name="builtinProviders" value="cssWlSecurityProviders.jar"/>
+          </case>
+          <case value="12.2.1">
+            <property name="shadedLibraries" value="true"/>
+            <property name="weblogicVersion" value="12.2.1"/>
+            <property name="javaHomeDir" value="C:/Programmi/Java/jdk1.8"/>
+            <property name="weblogicDir" value="C:/Oracle/Middleware/12.2.1"/>    
+            <property name="targetLibraries" value="target-libraries-12.2.1"/>
+            <property name="builtinProviders" value="wls-security-providers.jar"/>
+          </case>        
+          <case value="14.1.2">
+            <property name="shadedLibraries" value="false"/>
+            <property name="weblogicVersion" value="14.1.2"/>
+            <property name="javaHomeDir" value="C:/Programmi/Java/jdk17"/>
+            <property name="weblogicDir" value="C:/Oracle/Middleware/14.1.2"/>    
+            <property name="targetLibraries" value="target-libraries-14.1.2"/>
+            <property name="builtinProviders" value="wls-security-providers.jar"/>
+          </case>        
+          <default>
+            <fail message="Unsupported target: ${targetConfig}"/>
+          </default>
+        </switch>    
+                   
+        <!-- ==================================================================================================== -->
+        <!-- Paths for package dependencies  -->
+        <!-- ==================================================================================================== -->
+                        
+        <!-- common libraries shared by all targets -->
+        <path id="common-libraries">       
+            <pathelement location="${libDir}/json-20230618.jar"/>
+            <pathelement location="${libDir}/httpcore-4.4.13.jar"/>
+            <pathelement location="${libDir}/httpclient-4.5.13.jar"/>
+            <pathelement location="${libDir}/commons-codec-1.11.jar"/>
+        </path>         
+        
+        <!-- dependencies for target 12.1.3 (jdk7) -->
+        <path id="target-libraries-12.1.3">         
+           <pathelement location="${libDir}/nimbus-jose-jwt-9.48.jar"/>
+        </path>
+
+        <!-- dependencies for target 12.2.1 (jdk8) -->
+        <path id="target-libraries-12.2.1">         
+            <pathelement location="${libDir}/tink-1.15.0.jar"/>
+            <pathelement location="${libDir}/gson-2.11.0.jar"/>
+            <pathelement location="${libDir}/nimbus-jose-jwt-9.48-shaded.jar"/>
+        </path>            
+             
+        <!-- dependencies for target 14.1.2 (jdk17+) -->
+        <path id="target-libraries-14.1.2">         
+            <pathelement location="${libDir}/rhino-1.7.15.jar"/>
+            <pathelement location="${libDir}/rhino-engine-1.7.15.jar"/>
+        </path>
+        
+        <!-- ==================================================================================================== -->
+        <!-- Paths for classpath dependencies   -->
+        <!-- ==================================================================================================== -->
+            
+        <!-- core libraries shared by all targets -->
+        <path id="core-libraries">         
+            <pathelement location="${buildDir}"/>            
+            <pathelement location="${javaHomeDir}/lib/tools.jar"/>
+            <pathelement location="${javaHomeDir}/jre/lib/rt.jar"/>
+        </path>
+
+        <!-- target specific package libraries -->
+         <path id="package-libraries" >
+            <path refid="common-libraries"/>         
+            <path refid="${targetLibraries}"/>
+         </path>
+         
+        <!-- weblogic libraries shared by all targets -->
+        <path id="weblogic-libraries">         
+            <pathelement location="${weblogicDir}/osb/lib/servicebus.jar"/>
+            <pathelement location="${weblogicDir}/wlserver/server/lib/weblogic.jar"/>
+            <pathelement location="${weblogicDir}/wlserver/server/lib/mbeantypes/${builtinProviders}"/>
+        </path>
+            
+        <!-- classpath -->
+        <path id="myclasspath">
+            <path refid="core-libraries"/>
+            <path refid="package-libraries"/>
+            <path refid="weblogic-libraries"/>
+        </path>
+                           
+        <!-- ==================================================================================================== -->
+        <!-- Build parameters -->
+        <!-- ==================================================================================================== -->
+        
+        <!-- prepare build timestamp -->
+        <tstamp><format property="buildTimestamp" pattern="yyyyMMdd" /></tstamp> 
+
+        <!-- versione della libreria -->
+        <property name="libraryVersion" value="1.0" />
+                        
+        <!-- output file name -->    
+        <property name="outputFilePrefix" value="osb-commons" />
+        <property name="outputFileName" value="${outputFilePrefix}-${libraryVersion}.${buildTimestamp}-fmw_${weblogicVersion}" />
+        
+        <echo message="OutputFileName: ${outputFileName}"/>
+              
+    </target>
+    
+    <!-- #################################################################################################### -->
+    <!-- Main tasks -->
+    <!-- #################################################################################################### -->
+
+    <target name="all" depends="target.auto,prepare,build,deploy"/>
+    <target name="all.1213" depends="target.1213,all"/>
+    <target name="all.1221" depends="target.1221,all"/>    
+    <target name="all.1412" depends="target.1412,all"/>    
+    
+    <target name="build.1213" depends="target.1213,build"/>
+    <target name="build.1221" depends="target.1221,build"/>
+    <target name="build.1412" depends="target.1412,build"/>
+   
+    <target name="clean" depends="target.auto,prepare">
+        <delete dir="${buildDir}" failonerror="false" />
+        <echo message="Clean finish"></echo>
+    </target>
+    
+    <!-- ==================================================================================================== -->
+    <!-- Build -->
+    <!-- ==================================================================================================== -->
+    <target name="build" depends="target.auto,clean,prepare">
+        <mkdir dir="${buildDir}"/>
+        <javac fork="true" executable="${javaHomeDir}/bin/javac" destdir="${buildDir}">
+            <classpath>
+               <path refid="myclasspath" />
+            </classpath>
+            <src path="${sourceDir}" />
+            <include name="**/*.java"/>
+            <exclude if="${shadedLibraries}" name="**/JWTProviderNimbusImpl.java"/>
+            <exclude unless="${shadedLibraries}" name="**/JWTProviderNimbusShadedImpl.java"/>
+        </javac>
+        <echo message="Build finish"></echo>
+    </target>
+    
+    <!-- ==================================================================================================== -->
+    <!-- Deploy task  -->
+    <!-- ==================================================================================================== -->
+    <target name="deploy.1213" depends="target.1213,deploy"/>
+    <target name="deploy.1221" depends="target.1221,deploy"/>
+    <target name="deploy.1412" depends="target.1412,deploy"/>
+
+    <target name="deploy" depends="target.auto,prepare">
+           
+       <mkdir dir="${deployDir}" />
+       
+       <pathconvert property="packageLibraries" refid="package-libraries" pathsep=",">       
+          <map from="${basedir}/lib/" to=""/>
+       </pathconvert>
+
+       <jar basedir="${buildDir}" destfile="${deployDir}/${outputFileName}.jar">
+          <restrict>
+             <name name="**/*.class"/>
+             <archives>
+                 <zips>
+                     <fileset dir="${libDir}" includes="${packageLibraries}"/>
+                 </zips>
+             </archives>
+          </restrict>
+       </jar>
+                    
+       <echo message="Deploy finish"></echo>
+       
+    </target>       
+    
+</project>
