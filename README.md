@@ -1,5 +1,6 @@
-# `osb-commons` : Java Toolkit for Oracle Service Bus
-<div id="user-content-toc" align="center"><ul><summary><p align="center">Simple but powerful Java library that simplifies the development of extensions for the Oracle Service Bus platform.</p></summary></ul></div>
+<p align="center"><img src="https://github.com/user-attachments/assets/f7ef409a-d31e-4848-afa8-a8c9becc9498" /></p>
+
+<div id="user-content-toc" align="center"><ul><summary><h1 align="center">A Java Toolkit for Oracle Service Bus</h1><h3 align="center">Simple but powerful Java library that simplifies the extensions<br/>development for the Oracle Service Bus platform.</h3></summary></ul></div>
 
 ---
 
