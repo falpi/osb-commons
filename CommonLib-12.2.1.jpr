@@ -221,15 +221,6 @@
             </hash>
             <hash>
                <list n="classPath">
-                  <url path="../../../../../Oracle/Middleware/12.2.1/wlserver/server/lib/mbeantypes/wls-security-providers.jar" jar-entry=""/>
-               </list>
-               <value n="deployedByDefault" v="true"/>
-               <value n="description" v="Wls-security-providers.jar"/>
-               <value n="id" v="Wls-security-providers.jar"/>
-               <value n="locked" v="true"/>
-            </hash>
-            <hash>
-               <list n="classPath">
                   <url path="lib/nimbus-jose-jwt-9.48-shaded.jar" jar-entry=""/>
                </list>
                <value n="deployedByDefault" v="true"/>
@@ -246,10 +237,6 @@
          </hash>
          <hash>
             <value n="id" v="Servicebus.jar"/>
-            <value n="isJDK" v="false"/>
-         </hash>
-         <hash>
-            <value n="id" v="Wls-security-providers.jar"/>
             <value n="isJDK" v="false"/>
          </hash>
          <hash>

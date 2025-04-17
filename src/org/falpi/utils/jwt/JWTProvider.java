@@ -1,13 +1,6 @@
 package org.falpi.utils.jwt;
 
-import com.nimbusds.jwt.SignedJWT;
-
 import java.util.Map;
-
-import java.util.logging.Logger;
-
-import org.falpi.utils.JavaUtils;
-import org.falpi.utils.logging.LogLevel;
 
 public abstract class JWTProvider<T> {
    

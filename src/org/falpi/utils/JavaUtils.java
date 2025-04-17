@@ -1,10 +1,14 @@
 package org.falpi.utils;
 
+import java.io.File;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+
+import java.net.URL;
+import java.net.URLClassLoader;
 
 import java.text.SimpleDateFormat;
 
@@ -26,6 +30,21 @@ public class JavaUtils {
    public static Long getTimestamp() {
        return Long.valueOf(System.currentTimeMillis());
    }
+   
+   // ==================================================================================================================================
+   // Class loader
+   // ==================================================================================================================================
+   public static Class loadClass(String[] ArrClassPath,String StrClassName) throws Exception {
+      
+      // Converte array di stringhe in array di url
+      URL[] ArrClassPathURL = new URL[ArrClassPath.length];
+      for (int IntIndex=0;IntIndex<ArrClassPath.length;IntIndex++) {
+         ArrClassPathURL[IntIndex] = new File(ArrClassPath[IntIndex]).toURI().toURL();
+      }
+      
+      // Prova a caricare la classe con il classloader url based
+      return new URLClassLoader(ArrClassPathURL).loadClass(StrClassName);
+   }   
    
    // ==================================================================================================================================
    // Inizializza script engine
@@ -101,5 +120,5 @@ public class JavaUtils {
           }
       } 
       return Integer.parseInt(StrVersion);
-   }
+   }   
 }

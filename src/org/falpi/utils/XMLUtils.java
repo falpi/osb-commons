@@ -1,7 +1,5 @@
 package org.falpi.utils;
 
-import com.bea.xbean.xb.xsdschema.SchemaDocument;
-
 import java.util.ArrayList;
 
 import org.apache.xmlbeans.SchemaTypeLoader;
@@ -11,6 +9,8 @@ import org.apache.xmlbeans.XmlError;
 import org.apache.xmlbeans.XmlException;
 import org.apache.xmlbeans.XmlObject;
 import org.apache.xmlbeans.XmlOptions;
+
+import com.bea.xbean.xb.xsdschema.SchemaDocument;
 
 public class XMLUtils {
 

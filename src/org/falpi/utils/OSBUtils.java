@@ -1,8 +1,8 @@
 package org.falpi.utils;
 
-import java.lang.reflect.Method;
 import java.util.Calendar;
-
+import java.util.Iterator;
+import java.lang.reflect.Method;
 import javax.xml.namespace.QName;
 
 import com.bea.wli.config.Ref;
@@ -21,17 +21,19 @@ import com.bea.wli.sb.context.InboundEndpoint;
 import com.bea.wli.sb.context.MessageContextThreadLocal;
 import com.bea.wli.sb.context.OutboundEndpoint;
 import com.bea.wli.sb.pipeline.PipelineException;
+import com.bea.wli.sb.resources.schema.SchemaRepository;
+import com.bea.wli.sb.resources.service.BusinessServiceRepository;
 import com.bea.wli.sb.resources.service.CommonServiceRepository;
+import com.bea.wli.sb.resources.service.ProxyRepository;
 import com.bea.wli.sb.resources.wsdl.EffectiveWSDL;
 import com.bea.wli.sb.resources.wsdl.IncompleteEffectiveWSDLException;
+import com.bea.wli.sb.resources.wsdl.WsdlRepository;
+import com.bea.wli.sb.resources.xml.XmlRepository;
 import com.bea.wli.sb.sources.Source;
 import com.bea.wli.sb.sources.SourceUtils;
 import com.bea.wli.sb.sources.TransformException;
 import com.bea.wli.security.encryption.PBE_EncryptionService;
-
 import com.bea.xbean.xb.xsdschema.SchemaDocument;
-
-import java.util.Iterator;
 
 import org.apache.xmlbeans.XmlObject;
 import org.apache.xmlbeans.XmlOptions;
@@ -171,32 +173,46 @@ public class OSBUtils {
    
    public static XmlObject getResource(String StrResourceType, String StrResourcePath, Boolean BolStripComments) throws Exception {
 
-      // Prepara opzioni di estrazione xml per garantire il reincapsulamento dell'elemento root
-      XmlOptions ObjOptions =  new XmlOptions().setSaveSyntheticDocumentElement(new QName("root"));
-      
+      // Prepara variabili
+      XmlObject ObjResource = null;
+      XmlOptions ObjOptions = new XmlOptions();
+
       // Se è richiesto di rimuovere i commenti setta opzione specifica
-      if (BolStripComments)  ObjOptions.setLoadStripComments();
-      
-      // Prepara puntamento al service account per il mapping delle utenze
+      if (BolStripComments) ObjOptions.setLoadStripComments();
+
+      // Prepara riferimento alla risorsa
       Ref ObjResourceRef = getResourceRef(StrResourceType, StrResourcePath);
 
-      // Acquisisce la risorsa con l'interfaccia generale che restituisce l'istanza nella classe specifica
-      Object ObjResourceData = ALSBConfigService.get().getConfigService().getConfigContext().getResourceData(ObjResourceRef, true);
+      // Acquisisce la risorsa con l'interfaccia 
+      if (StrResourceType.equals("XML")) {
+         ObjResource = XmlObject.Factory.parse(XmlRepository.get().getEntry(ObjResourceRef).xmlText(ObjOptions));
+      } else if (StrResourceType.equals("WSDL")) {
+         ObjResource = XmlObject.Factory.parse(WsdlRepository.get().getEntry(ObjResourceRef).xmlText(ObjOptions));
+      } else if (StrResourceType.equals("XMLSchema")) {
+         ObjResource = XmlObject.Factory.parse(SchemaRepository.get().getEntry(ObjResourceRef).xmlText(ObjOptions));
+      } else if (StrResourceType.equals("ProxyService")) {
+         ObjResource = XmlObject.Factory.parse(ProxyRepository.get().getEntry(ObjResourceRef).xmlText(ObjOptions));
+      } else if (StrResourceType.equals("BusinessService")) {
+         ObjResource = XmlObject.Factory.parse(BusinessServiceRepository.get().getEntry(ObjResourceRef).xmlText(ObjOptions));
+      } else if (StrResourceType.equals("ServiceAccount")) {
 
-      // Prepara estrazione della risorsa per mezzo della reflection per bypassare gli eventuali controlli di accesso
-      Method ObjMethod = ObjResourceData.getClass().getDeclaredMethod("toExportedForm", PBE_EncryptionService.class);
-      ObjMethod.setAccessible(true);
+         // Acquisisce la risorsa con l'interfaccia generale che restituisce l'istanza nella classe specifica  
+         Object ObjResourceData = ALSBConfigService.get().getConfigService().getConfigContext().getResourceData(ObjResourceRef,true);
 
-      // Estrae la risorsa in formato XML
-      XmlObject ObjResourceXML = (XmlObject) ObjMethod.invoke(ObjResourceData, new Object[] { null });
+         // Converte in XML usando la reflection per bypassare i controlli di accesso (comune a tutti i tre tipi di service account)
+         Method ObjMethod = ObjResourceData.getClass().getDeclaredMethod("toExportedForm", PBE_EncryptionService.class);
+         ObjMethod.setAccessible(true);
+         
+         // Imposta opzione per definire un elemento radice appropriato (altrimenti si genera un xml-fragment problematico)
+         ObjOptions.setSaveSyntheticDocumentElement(new QName("serviceAccount"));
+         
+         // Riesegue il parsing dell'XML 
+         ObjResource = XmlObject.Factory.parse(XmlObject.class.cast(ObjMethod.invoke(ObjResourceData,new Object[]{ null })).xmlText(ObjOptions));
+      }
 
-      // Riesegue il parsing dell'XML per poter creare un elemento radice appropriato (altrimenti si genera un xml-fragment problematico)
-      ObjResourceXML = XmlObject.Factory.parse(ObjResourceXML.xmlText(ObjOptions));
-
-      // Restituisce service account
-      return ObjResourceXML;
+      return ObjResource;
    }
-
+   
    // ==================================================================================================================================
    // Acquisisce puntamento a risorsa OSB
    // ==================================================================================================================================
