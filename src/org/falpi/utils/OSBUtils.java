@@ -194,7 +194,7 @@ public class OSBUtils {
          ObjResource = XmlObject.Factory.parse(ProxyRepository.get().getEntry(ObjResourceRef).xmlText(ObjOptions));
       } else if (StrResourceType.equals("BusinessService")) {
          ObjResource = XmlObject.Factory.parse(BusinessServiceRepository.get().getEntry(ObjResourceRef).xmlText(ObjOptions));
-      } else if (StrResourceType.equals("ServiceAccount")) {
+      } else {
 
          // Acquisisce la risorsa con l'interfaccia generale che restituisce l'istanza nella classe specifica  
          Object ObjResourceData = ALSBConfigService.get().getConfigService().getConfigContext().getResourceData(ObjResourceRef,true);
