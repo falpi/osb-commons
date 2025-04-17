@@ -201,8 +201,8 @@ $Date$
     <target name="build.1412" depends="target.1412,build"/>
    
     <target name="clean" depends="target.auto,prepare">
-        <delete dir="${buildDir}" failonerror="false" />
-        <echo message="Clean finish"></echo>
+       <delete dir="${buildDir}" failonerror="false" />
+       <echo message="Clean finish"></echo>
     </target>
     
     <!-- ==================================================================================================== -->
@@ -211,9 +211,7 @@ $Date$
     <target name="build" depends="target.auto,clean,prepare">
         <mkdir dir="${buildDir}"/>
         <javac fork="true" executable="${javaHomeDir}/bin/javac" destdir="${buildDir}">
-            <classpath>
-               <path refid="myclasspath" />
-            </classpath>
+            <classpath refid="myclasspath"/>
             <src path="${sourceDir}" />
             <include name="**/*.java"/>
             <exclude if="${shadedLibraries}" name="**/JWTProviderNimbusImpl.java"/>
@@ -231,12 +229,17 @@ $Date$
 
     <target name="deploy" depends="target.auto,prepare">
            
+       <!-- se non esiste crea directory di deploy -->       
        <mkdir dir="${deployDir}" />
        
+       <!-- prepara filtro di inclusione dall'elenco dei path delle librerie -->
        <pathconvert property="packageLibraries" refid="package-libraries" pathsep=",">       
           <map from="${basedir}/lib/" to=""/>
        </pathconvert>
 
+       <!-- :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::: -->
+       <!-- Build merged jar file                                                                                -->
+       <!-- :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::: -->
        <jar basedir="${buildDir}" destfile="${deployDir}/${outputFileName}.jar">
           <restrict>
              <name name="**/*.class"/>
@@ -247,7 +250,8 @@ $Date$
              </archives>
           </restrict>
        </jar>
-                    
+       <!-- :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::: -->
+       
        <echo message="Deploy finish"></echo>
        
     </target>       
