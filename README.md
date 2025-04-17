@@ -1,4 +1,7 @@
-<div id="user-content-toc" align="center"><ul><summary><h1 align="center">Java Library for Oracle Service Bus</h1></summary></ul></div>
+# `osb-commons` : Java Toolkit for Oracle Service Bus
+<div id="user-content-toc" align="center"><ul><summary><p align="center">Simple but powerful Java library that simplifies the development of extensions for the Oracle Service Bus platform.</p></summary></ul></div>
+
+---
 
 ## Build instructions
 <p align="justify">The sources can be compiled with any Java IDE with Ant support but you need to prepare the necessary dependencies for WebLogic and Oracle Service Bus libraries. You only need to modify "javaHomeDir" and "weblogicDir" in "Build.xml" file to suit your environment. The file supports multiple terget already prepared for WebLogic 12.1.3, 12.2.1 and 14.1.2 on a Windows operating system. Here is an excerpt of the section that needs to be customized.</p>
