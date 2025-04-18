@@ -13,6 +13,7 @@ import java.util.Collections;
 import javax.security.auth.Subject;
 import javax.servlet.http.HttpServletRequest;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
 import org.apache.http.auth.AuthSchemeProvider;
@@ -32,6 +33,7 @@ import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.conn.ssl.TrustAllStrategy;
+import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.impl.auth.BasicSchemeFactory;
 import org.apache.http.impl.auth.NTLMSchemeFactory;
 import org.apache.http.impl.auth.SPNegoSchemeFactory;
@@ -56,8 +58,9 @@ public class HttpUtils {
    // ==================================================================================================================================
    // Acquisisce risorsa via http
    // ==================================================================================================================================
-   public static String fetch(final HttpMethod ObjHttpMethod,
-                              final String StrRequestURL, String StrContentType, 
+   public static byte[] fetch(HttpMethod ObjHttpMethod,
+                              String StrRequestURL,byte[] ObjRequestBody,
+                              String StrRequestContentType,String StrResponseContentType, 
                               String StrHostAuthMode,String StrHostUserName,String StrHostPassword,  
                               String StrProxyServerMode,String StrProxyUserName,String StrProxyPassword,
                               String StrProxyHost,int IntProxyPort,Boolean BolSSLEnforce,                         
@@ -66,8 +69,8 @@ public class HttpUtils {
       // ==================================================================================================================================
       // Dichiara variabili
       // ==================================================================================================================================
-      String StrPayload;
       HttpResponse ObjHttpResponse;
+      final HttpRequestBase ObjHttpRequest;
       final CloseableHttpClient ObjHttpClient;
       final HashMap<String,Object> ObjContext = new HashMap<String,Object>();      
       ArrayList<CustomKrb5LoginModule> ArrLoginContext = new ArrayList<CustomKrb5LoginModule>();
@@ -75,18 +78,23 @@ public class HttpUtils {
       // ==================================================================================================================================
       // Prepara la request e la esegue
       // ==================================================================================================================================
-      ObjHttpClient = HttpUtils.buildClient(StrRequestURL,
-                                            StrHostAuthMode,StrHostUserName,StrHostPassword,  
-                                            StrProxyServerMode,StrProxyUserName,StrProxyPassword,
-                                            StrProxyHost,IntProxyPort,BolSSLEnforce,                              
-                                            IntConnectTimeout,IntRequestTimeout,
-                                            ArrLoginContext,Logger);
-                                          
+            
+      // Prepara client di connessione
+      ObjHttpClient = buildClient(StrRequestURL,
+                                  StrHostAuthMode,StrHostUserName,StrHostPassword,  
+                                  StrProxyServerMode,StrProxyUserName,StrProxyPassword,
+                                  StrProxyHost,IntProxyPort,BolSSLEnforce,                              
+                                  IntConnectTimeout,IntRequestTimeout,
+                                  ArrLoginContext,Logger);
+
+      // Prepara request
+      ObjHttpRequest = buildRequest(ObjHttpMethod,StrRequestURL,StrRequestContentType,ObjRequestBody);
+
       // Se non è stato allocato alcun login context kerberos esegue, altrimenti procede
       if (ArrLoginContext.size() == 0) {
          
          // Esegue la request nel contesto ordinario, altimenti procede
-         ObjHttpResponse = ObjHttpClient.execute(buildRequest(ObjHttpMethod,StrRequestURL));
+         ObjHttpResponse = ObjHttpClient.execute(ObjHttpRequest);
                         
       } else {
          
@@ -99,7 +107,7 @@ public class HttpUtils {
             @Override
             public Boolean run() {
                try {
-                  ObjContext.put("response",ObjHttpClient.execute(buildRequest(ObjHttpMethod,StrRequestURL)));
+                  ObjContext.put("response",ObjHttpClient.execute(ObjHttpRequest));
                } catch (Exception ObjException) {
                   ObjContext.put("exception",ObjException);
                } 
@@ -128,38 +136,45 @@ public class HttpUtils {
       // ==================================================================================================================================
 
       // Se lo statuscode è diverso da 200 genera eccezione
-      if (ObjHttpResponse.getStatusLine().getStatusCode() != 200) {
+      if (ObjHttpResponse.getStatusLine().getStatusCode()!=200) {
          throw new Exception(ObjHttpResponse.getStatusLine().getReasonPhrase()+" (HTTP "+ObjHttpResponse.getStatusLine().getStatusCode()+")");
       }
 
-      // Se il content-type non è corretto genera eccezione
-      if (!ObjHttpResponse.getEntity().getContentType().getValue().startsWith(StrContentType)) {
+      // Se il content-type di response non è corretto genera eccezione
+      if ((!StrResponseContentType.equals(""))&&
+          (!ObjHttpResponse.getEntity().getContentType().getValue().startsWith(StrResponseContentType))) {
          throw new Exception("Unexpected content-type ("+ObjHttpResponse.getEntity().getContentType().getValue()+")");
       }
 
-      // Acquisisce payload in formato testo
-      StrPayload = StringUtils.toString(ObjHttpResponse.getEntity().getContent());
-
       // Restituisce payload al chiamante
-      return StrPayload;
+      return IOUtils.toByteArray(ObjHttpResponse.getEntity().getContent());
    }
    
    // ==================================================================================================================================
    // Costruisce http request
    // ==================================================================================================================================   
-   public static HttpRequestBase buildRequest(HttpMethod ObjHttpMethod,String StrRequestURL) {
+   public static HttpRequestBase buildRequest(final HttpMethod ObjHttpMethod,String StrRequestURL,String StrRequestContentType,byte[] ObjRequestBody) {
       
       HttpRequestBase ObjHttpRequest = null;
 
-      switch (ObjHttpMethod) {
-         case GET: ObjHttpRequest = new HttpGet(StrRequestURL);break;
-         case PUT: ObjHttpRequest = new HttpPut(StrRequestURL);break;
-         case POST: ObjHttpRequest = new HttpPost(StrRequestURL);break;
-         case HEAD: ObjHttpRequest = new HttpHead(StrRequestURL);break;
-         case DELETE: ObjHttpRequest = new HttpDelete(StrRequestURL);break;
-         case OPTIONS: ObjHttpRequest = new HttpOptions(StrRequestURL);break;
+      if (ObjRequestBody!=null) {
+         ObjHttpRequest = new HttpPost(StrRequestURL) { @Override public String getMethod() { return ObjHttpMethod.name(); }};
+         ((HttpPost) ObjHttpRequest).setEntity(new ByteArrayEntity(ObjRequestBody));
+      } else {
+         switch (ObjHttpMethod) {
+            case GET: ObjHttpRequest = new HttpGet(StrRequestURL);break;
+            case PUT: ObjHttpRequest = new HttpPut(StrRequestURL);break;
+            case POST: ObjHttpRequest = new HttpPost(StrRequestURL);break;
+            case HEAD: ObjHttpRequest = new HttpHead(StrRequestURL);break;
+            case DELETE: ObjHttpRequest = new HttpDelete(StrRequestURL);break;
+            case OPTIONS: ObjHttpRequest = new HttpOptions(StrRequestURL);break;
+         }
       }
       
+      // Se il content type è definito lo aggiunge come header
+      if (StrRequestContentType!= "") ObjHttpRequest.addHeader("Content-Type", StrRequestContentType);
+      
+      // Restrituisce request
       return ObjHttpRequest;
    }
 

@@ -22,7 +22,7 @@ $Date$
     <!-- #################################################################################################### -->    
         
     <!-- ant-contrib -->
-    <taskdef classpath="${libDir}/ant-contrib-0.6.jar" resource="net/sf/antcontrib/antcontrib.properties"/>     
+    <taskdef classpath="${libDir}/ant-contrib-1.0b3.jar" resource="net/sf/antcontrib/antlib.xml"/>     
     
     <!-- #################################################################################################### -->
     <!-- Preparation tasks -->
@@ -71,6 +71,9 @@ $Date$
     
     <!-- target to prepare runtime environment properties -->
     <target name="prepare" depends="target.auto">         
+                           
+        <!-- acquisisce variabili di ambiente -->    
+        <property environment="env"/>
                            
         <!-- ==================================================================================================== -->
         <!-- Target specific properties   -->
@@ -177,7 +180,7 @@ $Date$
         <tstamp><format property="buildTimestamp" pattern="yyyyMMdd" /></tstamp> 
 
         <!-- versione della libreria -->
-        <property name="libraryVersion" value="1.0" />
+        <property name="libraryVersion" value="1.0.0" />
                         
         <!-- output file name -->    
         <property name="outputFilePrefix" value="osb-commons" />
@@ -236,7 +239,7 @@ $Date$
        <pathconvert property="packageLibraries" refid="package-libraries" pathsep=",">       
           <map from="${basedir}/lib/" to=""/>
        </pathconvert>
-
+              
        <!-- :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::: -->
        <!-- Build merged jar file                                                                                -->
        <!-- :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::: -->
@@ -250,6 +253,25 @@ $Date$
              </archives>
           </restrict>
        </jar>
+       
+       <!-- :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::: -->
+       <!-- remove deployed files and redeploy the new ones -->
+       <!-- :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::: -->       
+       <for param="domainHome">
+          <path>
+           <dirset dir="${env.APPDATA}/JDeveloper">
+             <include name="system${weblogicVersion}*"/>
+           </dirset>
+         </path>
+         <sequential>
+            <property name="domainLibDir" value="@{domainHome}/DefaultDomain/lib"/>
+            <echo message="Domain Lib : ${domainLibDir}"/>
+            <delete>
+               <fileset dir="${domainLibDir}" includes="${outputFilePrefix}*.*" />
+            </delete>
+            <copy todir="${domainLibDir}" file="${deployDir}/${outputFileName}.jar"/>
+         </sequential>
+       </for>
        <!-- :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::: -->
        
        <echo message="Deploy finish"></echo>
