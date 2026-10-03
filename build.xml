@@ -2,8 +2,8 @@
 ##################################################################################################################################
 VERSIONING
 ##################################################################################################################################
-$Revision: 2074 $
-$Date: 2026-10-03 17:20:29 +0200 (Sat, 03 Oct 2026) $
+$Revision: 2088 $
+$Date: 2026-10-03 18:53:22 +0200 (Sat, 03 Oct 2026) $
 ##################################################################################################################################
 -->
 <project name="Build" default="all" basedir="." xmlns:if="ant:if" xmlns:unless="ant:unless">
@@ -218,6 +218,15 @@ $Date: 2026-10-03 17:20:29 +0200 (Sat, 03 Oct 2026) $
        <jar basedir="${buildDir}" destfile="${deployDir}/${outputFileName}.jar">
           <restrict>
              <name name="**/*.class"/>
+             <archives>
+                 <zips>
+                     <fileset dir="${libDir}" includes="${packageLibraries}"/>
+                 </zips>
+             </archives>
+          </restrict>
+          <!-- messaggi di rhino (solo target 14.1.2): senza di essi gli errori degli script riportano solo la chiave del messaggio -->
+          <restrict>
+             <name name="org/mozilla/javascript/resources/*.properties"/>
              <archives>
                  <zips>
                      <fileset dir="${libDir}" includes="${packageLibraries}"/>
