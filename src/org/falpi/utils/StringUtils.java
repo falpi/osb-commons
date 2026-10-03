@@ -62,16 +62,23 @@ public class StringUtils {
       return StrOutput;
    } 
 
+   public static String join(List<String> ObjList, String StrSeparator) {            
+      String StrOutput = "";
+      Iterator<String> ObjIterator = ObjList.iterator();
+      while (ObjIterator.hasNext()) {
+         StrOutput+= ((!StrOutput.equals(""))?(StrSeparator):(""))+ObjIterator.next().trim();
+      }
+      return StrOutput;       
+   }
+   
    public static String join(ArrayList<String> ArrStrings, String StrSeparator) {            
       String StrOutput = "";
       Iterator<String> ObjIterator = ArrStrings.iterator();
       while (ObjIterator.hasNext()) {
          StrOutput+= ((!StrOutput.equals(""))?(StrSeparator):(""))+ObjIterator.next().trim();
       }
-      return StrOutput;
-       
-   }
-   
+      return StrOutput;       
+   }   
    // ==================================================================================================================================
    // Genera una sequenza di caratteri
    // ==================================================================================================================================
@@ -154,8 +161,9 @@ public class StringUtils {
       String StrVariableName;
       String StrVariableValue;
       Object ObjVariableValue;
+      ArrayList ArrVariableValues;
       
-      Pattern ObjPattern = Pattern.compile("(\\$\\{([a-z|\\.|\\*]*)\\})");
+      Pattern ObjPattern = Pattern.compile("(\\$\\{([^}]*)\\})");
       Matcher ObjMatcher = ObjPattern.matcher(StrText);
       
       while (ObjMatcher.find()) {
@@ -163,13 +171,18 @@ public class StringUtils {
          StrTemplate = ObjMatcher.group(1);
          StrVariableName = ObjMatcher.group(2);
          StrVariableValue = null;
+
+         if (!StrVariableName.matches("^[a-zA-Z_\\-]+(\\.[a-zA-Z_\\-]+)*(\\.\\*)?$")) {
+            throw new Exception("invalid template variable format '"+StrTemplate+"'");    
+         }
          
          // Cerca la variabile tra le chiavi di contesto semplici
          ObjVariableValue = ObjContext.get(StrVariableName);
          
          // Se non è stato trovato alcun match cerca la prima variabile tra le chiavi di contesto regex
          if (ObjVariableValue==null) {
-            ObjVariableValue = ObjContext.getRegex(StrVariableName,true).get(0);
+            ArrVariableValues = ObjContext.getRegex(StrVariableName,true);
+            if (!ArrVariableValues.isEmpty()) ObjVariableValue = ArrVariableValues.get(0);
          }
          
          // Se sono funzioni le esegue, se è una stringa la converte, altrimenti genera eccezione
@@ -178,7 +191,7 @@ public class StringUtils {
          } else if (ObjVariableValue instanceof TemplateFunction) {
             StrVariableValue = ((TemplateFunction) ObjVariableValue).apply(StrVariableName,ObjContext);
          } else {
-            throw new Exception("invalid template variable '"+StrVariableName+"'");               
+            throw new Exception("invalid template variable '"+StrTemplate+"'");               
          }
          
          // Esegue sostituzione della variabile template         
@@ -188,4 +201,38 @@ public class StringUtils {
       // Restituisce stringa con i template sostituiti
       return StrText;
    }   
+
+   // ==================================================================================================================================
+   // Esegue l'escape di una stringa per l'uso in un literal JavaScript (stesse regole di commons-lang 2.x escapeJavaScript)
+   // ==================================================================================================================================
+   public static String escapeJavaScript(String StrValue) {
+
+      // Se la stringa non e' valorizzata la restituisce invariata
+      if (StrValue==null) return null;
+
+      // Prepara buffer di output
+      StringBuilder ObjBuilder = new StringBuilder(StrValue.length()*2);
+
+      // Esegue l'escape dei caratteri speciali, di controllo e non ascii
+      for (int IntIndex=0;IntIndex<StrValue.length();IntIndex++) {
+         char ChrValue = StrValue.charAt(IntIndex);
+         switch (ChrValue) {
+            case '\b': ObjBuilder.append("\\b"); break;
+            case '\n': ObjBuilder.append("\\n"); break;
+            case '\t': ObjBuilder.append("\\t"); break;
+            case '\f': ObjBuilder.append("\\f"); break;
+            case '\r': ObjBuilder.append("\\r"); break;
+            case '\'': ObjBuilder.append("\\'"); break;
+            case '"':  ObjBuilder.append("\\\""); break;
+            case '\\': ObjBuilder.append("\\\\"); break;
+            case '/':  ObjBuilder.append("\\/"); break;
+            default:
+               if ((ChrValue<32)||(ChrValue>0x7f)) ObjBuilder.append(String.format("\\u%04X",(int)ChrValue));
+               else ObjBuilder.append(ChrValue);
+         }
+      }
+
+      // Restituisce la stringa con escape
+      return ObjBuilder.toString();
+   }
 }

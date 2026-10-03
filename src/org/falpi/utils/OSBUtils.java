@@ -1,12 +1,16 @@
 package org.falpi.utils;
 
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Calendar;
 import java.util.Iterator;
 import java.lang.reflect.Method;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.xml.namespace.QName;
 
 import com.bea.wli.config.Ref;
 import com.bea.wli.config.component.NotFoundException;
+import com.bea.wli.config.resource.Metadata;
 import com.bea.wli.reporting.EndpointType;
 import com.bea.wli.reporting.FaultType;
 import com.bea.wli.reporting.MessageContextType;
@@ -32,20 +36,23 @@ import com.bea.wli.sb.resources.xml.XmlRepository;
 import com.bea.wli.sb.sources.Source;
 import com.bea.wli.sb.sources.SourceUtils;
 import com.bea.wli.sb.sources.TransformException;
+import com.bea.wli.sb.transports.RequestHeaders;
+import com.bea.wli.sb.transports.ResponseHeaders;
 import com.bea.wli.security.encryption.PBE_EncryptionService;
 import com.bea.xbean.xb.xsdschema.SchemaDocument;
 
 import org.apache.xmlbeans.XmlObject;
 import org.apache.xmlbeans.XmlOptions;
 
-import org.falpi.utils.XMLUtils;
+import org.falpi.utils.logging.*;
 
 public class OSBUtils {
 
    // ##############################################################################################
-   // Sottoclasse per la gestione del message context
+   // Sottoclassi
    // ##############################################################################################
 
+   // Sottoclasse per la gestione del message context
    public static class MessageContext {
 
       // ==================================================================================================================================
@@ -146,6 +153,25 @@ public class OSBUtils {
       }      
    }
    
+   // Sottoclasse per la gestione del caching delle risorse
+   private static class ResourceCacheEntry {  
+      
+      private long timeStamp;
+      private XmlObject resource;  
+      
+      ResourceCacheEntry(XmlObject ObjResource,long IntTimeStamp) {
+         this.resource = ObjResource;
+         this.timeStamp = IntTimeStamp;
+      }      
+   }   
+   
+   // ##############################################################################################
+   // Variabili 
+   // ##############################################################################################
+   
+   // Cache statica delle risorse OSB
+   private static ConcurrentHashMap<String,ResourceCacheEntry> resourceCache = new ConcurrentHashMap<String,ResourceCacheEntry>();
+   
    // ##############################################################################################
    // Metodi statici della classe primaria
    // ##############################################################################################
@@ -161,7 +187,24 @@ public class OSBUtils {
    // Mappa remote user su local user mediante un service account di mapping
    // ==================================================================================================================================
    public static XmlObject getMappedRemoteUser(String StrServiceAccountPath, String StrLocalUser) throws Exception {
-      return getResource("ServiceAccount", StrServiceAccountPath,true).selectPath("//*:remote-user[*:username/text()='" + StrLocalUser + "']")[0];
+      XmlObject ObjServiceAccount = getResource("ServiceAccount", StrServiceAccountPath,true);
+      String StrRemoteUser = XMLUtils.getTextValue(ObjServiceAccount,"//*:user-mapping[@local-user='" + StrLocalUser + "']/@remote-user");
+      return ObjServiceAccount.selectPath("//*:remote-user[*:username/text()='" + StrRemoteUser + "']")[0];
+   }
+   
+   // ==================================================================================================================================
+   // Estrapola la password del remote user in un service account di mapping
+   // ==================================================================================================================================
+   public static String getRemotePassword(String StrServiceAccountPath, String StrRemoteUser) throws Exception {
+      XmlObject ObjServiceAccount = getResource("ServiceAccount", StrServiceAccountPath,true);
+      return XMLUtils.getTextValue(ObjServiceAccount,"//*:remote-user[*:username/text()='" + StrRemoteUser + "']/*:password/text()");
+   }   
+   
+   // ==================================================================================================================================
+   // Acquisisce metadati risorsa OSB 
+   // ==================================================================================================================================
+   public static Metadata getResourceMetadata(String StrResourceType, String StrResourcePath) throws Exception {
+      return ALSBConfigService.get().getConfigService().getConfigContext().getMetadata(getResourceRef(StrResourceType, StrResourcePath));
    }
 
    // ==================================================================================================================================
@@ -176,7 +219,7 @@ public class OSBUtils {
       // Prepara variabili
       XmlObject ObjResource = null;
       XmlOptions ObjOptions = new XmlOptions();
-
+      
       // Se è richiesto di rimuovere i commenti setta opzione specifica
       if (BolStripComments) ObjOptions.setLoadStripComments();
 
@@ -185,7 +228,7 @@ public class OSBUtils {
 
       // Acquisisce la risorsa con l'interfaccia 
       if (StrResourceType.equals("XML")) {
-         ObjResource = XmlObject.Factory.parse(XmlRepository.get().getEntry(ObjResourceRef).xmlText(ObjOptions));
+         ObjResource = XmlObject.Factory.parse(XmlRepository.get().getEntry(ObjResourceRef).getXmlEntry().getXmlContent(),ObjOptions);
       } else if (StrResourceType.equals("WSDL")) {
          ObjResource = XmlObject.Factory.parse(WsdlRepository.get().getEntry(ObjResourceRef).xmlText(ObjOptions));
       } else if (StrResourceType.equals("XMLSchema")) {
@@ -212,6 +255,35 @@ public class OSBUtils {
 
       return ObjResource;
    }
+
+   public static XmlObject getResourceCached(String StrResourceType, String StrResourcePath) throws Exception {
+      return getResourceCached(StrResourceType,StrResourcePath,true);
+   }
+   
+   public static XmlObject getResourceCached(String StrResourceType, String StrResourcePath, Boolean BolStripComments) throws Exception {
+      
+      // Iizializza flag
+      Boolean BolCached = true;
+      
+      // Determina chiave di caching della risorsa
+      String StrCachingKey = StrResourceType+":"+StrResourcePath;
+      
+      // Ricerca la risorsa in base all'indice fornito
+      ResourceCacheEntry ObjEntry = resourceCache.get(StrCachingKey);
+
+      // Acquisisce timestamp di ultima modifica della risorsa
+      long IntTimeStamp = getResourceMetadata(StrResourceType,StrResourcePath).getDigest().getLastChangeTime();
+      
+      // Se la risorsa non è cachata o è cambiata la legge e la mette in cache
+      if ((ObjEntry==null)||(ObjEntry.timeStamp!=IntTimeStamp)) {
+         ObjEntry = new ResourceCacheEntry(getResource(StrResourceType,StrResourcePath,BolStripComments),IntTimeStamp);
+         resourceCache.put(StrCachingKey,ObjEntry);   
+         BolCached = false;                     
+      }
+      
+      // Restituisce la risorsa
+      return ObjEntry.resource;
+   }
    
    // ==================================================================================================================================
    // Acquisisce puntamento a risorsa OSB
@@ -221,7 +293,7 @@ public class OSBUtils {
    }
    
    public static Ref getResourceRef(String StrResourceType, String StrResourcePath) {
-      return new com.bea.wli.config.Ref(StrResourceType, Ref.getNames(StrResourcePath));
+      return new Ref(StrResourceType, Ref.getNames(StrResourcePath));
    }
 
    // ==================================================================================================================================
@@ -312,4 +384,55 @@ public class OSBUtils {
          throw new RuntimeException(ObjException.toString());
       }
    }
+   
+   // ==================================================================================================================================
+   // Costruisce mappa delle variabili del message context
+   // ==================================================================================================================================
+   
+   public static Map<String,Object> buildContextVariables(com.bea.wli.sb.context.MessageContext ObjMessageContext) throws PipelineException {
+                  
+      HashMap<String,Object> ObjVariables = new HashMap<String,Object>();      
+      Iterator<String> ObjIterator = ObjMessageContext.getVariableNames();
+      
+      while (ObjIterator.hasNext()) {
+         String StrVariableName = ObjIterator.next();
+         ObjVariables.put(StrVariableName,ObjMessageContext.getVariableValue(StrVariableName));
+      } 
+            
+      return ObjVariables;
+   }  
+   
+   // ==================================================================================================================================
+   // Costruisce mappa dei request header
+   // ==================================================================================================================================
+   
+   public static Map<String,Object> buildRequestHeaders(RequestHeaders ObjRequestHeaders) {
+                  
+      HashMap<String,Object> ObjHeaders = new HashMap<String,Object>();      
+      Iterator<String> ObjIterator = ObjRequestHeaders.getHeaderNames();
+      
+      while (ObjIterator.hasNext()) {
+         String StrHeaderName = ObjIterator.next();
+         ObjHeaders.put(StrHeaderName, ObjRequestHeaders.getHeader(StrHeaderName));
+      } 
+            
+      return ObjHeaders;
+   }
+   
+   // ==================================================================================================================================
+   // Costruisce mappa dei response header
+   // ==================================================================================================================================
+   
+   public static Map<String,Object> buildResponseHeaders(ResponseHeaders ObjResponseHeaders) {
+                  
+      HashMap<String,Object> ObjHeaders = new HashMap<String,Object>();      
+      Iterator<String> ObjIterator = ObjResponseHeaders.getHeaderNames();
+      
+      while (ObjIterator.hasNext()) {
+         String StrHeaderName = ObjIterator.next();
+         ObjHeaders.put(StrHeaderName, ObjResponseHeaders.getHeader(StrHeaderName));
+      } 
+            
+      return ObjHeaders;
+   }      
 }

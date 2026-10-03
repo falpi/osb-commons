@@ -15,7 +15,7 @@ import javax.servlet.http.HttpServletRequest;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpHost;
-import org.apache.http.HttpResponse;
+import org.apache.http.HttpEntity;
 import org.apache.http.auth.AuthSchemeProvider;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.Credentials;
@@ -23,6 +23,7 @@ import org.apache.http.auth.NTCredentials;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.config.AuthSchemes;
 import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpHead;
@@ -30,6 +31,7 @@ import org.apache.http.client.methods.HttpOptions;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpRequestBase;
+import org.apache.http.client.utils.HttpClientUtils;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.conn.ssl.TrustAllStrategy;
@@ -42,6 +44,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.ssl.SSLContextBuilder;
+import org.apache.http.util.EntityUtils;
 
 import org.falpi.SuperMap;
 import org.falpi.utils.logging.LogLevel;
@@ -54,6 +57,23 @@ public class HttpUtils {
    // Metodi http
    // ==================================================================================================================================
    public enum HttpMethod { GET,PUT,POST,HEAD,DELETE,OPTIONS }
+
+   // ==================================================================================================================================
+   // Eccezione per status code http inatteso (conserva content-type e body della response per la diagnostica)
+   // ==================================================================================================================================
+   public static class HttpStatusException extends Exception {
+
+      public final int statusCode;
+      public final String contentType;
+      public final String body;
+
+      public HttpStatusException(int IntStatusCode,String StrReason,String StrContentType,String StrBody) {
+         super(StrReason+" (HTTP "+IntStatusCode+")"+((StrBody.isEmpty())?(""):(" - "+StrBody)));
+         statusCode = IntStatusCode;
+         contentType = StrContentType;
+         body = StrBody;
+      }
+   }
    
    // ==================================================================================================================================
    // Acquisisce risorsa via http
@@ -69,7 +89,7 @@ public class HttpUtils {
       // ==================================================================================================================================
       // Dichiara variabili
       // ==================================================================================================================================
-      HttpResponse ObjHttpResponse;
+      CloseableHttpResponse ObjHttpResponse = null;
       final HttpRequestBase ObjHttpRequest;
       final CloseableHttpClient ObjHttpClient;
       final HashMap<String,Object> ObjContext = new HashMap<String,Object>();      
@@ -87,67 +107,92 @@ public class HttpUtils {
                                   IntConnectTimeout,IntRequestTimeout,
                                   ArrLoginContext,Logger);
 
-      // Prepara request
-      ObjHttpRequest = buildRequest(ObjHttpMethod,StrRequestURL,StrRequestContentType,ObjRequestBody);
+      try {
+         // Prepara request
+         ObjHttpRequest = buildRequest(ObjHttpMethod,StrRequestURL,StrRequestContentType,ObjRequestBody);
 
-      // Se non è stato allocato alcun login context kerberos esegue, altrimenti procede
-      if (ArrLoginContext.size() == 0) {
+         // Se non è stato allocato alcun login context kerberos esegue, altrimenti procede
+         if (ArrLoginContext.size() == 0) {
          
-         // Esegue la request nel contesto ordinario, altimenti procede
-         ObjHttpResponse = ObjHttpClient.execute(ObjHttpRequest);
+            // Esegue la request nel contesto ordinario, altimenti procede
+            ObjHttpResponse = ObjHttpClient.execute(ObjHttpRequest);
                         
-      } else {
+         } else {
          
-         // Acquisisce i login context kerberos (al momento supportato solo un context)
-         CustomKrb5LoginModule ObjLoginModule = ArrLoginContext.get(0);
-         Subject ObjSubject = ObjLoginModule.getSubject();
+            // Acquisisce i login context kerberos (al momento supportato solo un context)
+            CustomKrb5LoginModule ObjLoginModule = ArrLoginContext.get(0);
+            Subject ObjSubject = ObjLoginModule.getSubject();
          
-         // Racchiude la request in contesto privilegiato
-         PrivilegedAction<Boolean> ObjAction = new PrivilegedAction<Boolean>() {
-            @Override
-            public Boolean run() {
-               try {
-                  ObjContext.put("response",ObjHttpClient.execute(ObjHttpRequest));
-               } catch (Exception ObjException) {
-                  ObjContext.put("exception",ObjException);
-               } 
-               return true;
+            // Racchiude la request in contesto privilegiato
+            PrivilegedAction<Boolean> ObjAction = new PrivilegedAction<Boolean>() {
+               @Override
+               public Boolean run() {
+                  try {
+                     ObjContext.put("response",ObjHttpClient.execute(ObjHttpRequest));
+                  } catch (Exception ObjException) {
+                     ObjContext.put("exception",ObjException);
+                  } 
+                  return true;
+               }
+            };
+
+            // Esecuzione privilegiata della request
+            Subject.doAs(ObjSubject, ObjAction);
+         
+            // Esegue logout e svuota l'array
+            ObjLoginModule.logout();
+            ArrLoginContext.clear();
+         
+            // Se c'è stata eccezione la genera
+            if (ObjContext.containsKey("exception")) {
+               throw (Exception) ObjContext.get("exception");
             }
-         };
-
-         // Esecuzione privilegiata della request
-         Subject.doAs(ObjSubject, ObjAction);
          
-         // Esegue logout e svuota l'array
-         ObjLoginModule.logout();
-         ArrLoginContext.clear();
-         
-         // Se c'è stata eccezione la genera
-         if (ObjContext.containsKey("exception")) {
-            throw (Exception) ObjContext.get("exception");
+            // Acquisisce response
+            ObjHttpResponse = (CloseableHttpResponse) ObjContext.get("response");
          }
+
+         // ==================================================================================================================================
+         // Gestisce la response
+         // ==================================================================================================================================
+
+         // Acquisisce entity e content-type della response (il content-type puo' mancare)
+         HttpEntity ObjEntity = ObjHttpResponse.getEntity();
+         String StrContentType = ((ObjEntity!=null)&&(ObjEntity.getContentType()!=null))?(ObjEntity.getContentType().getValue()):("");
+
+         // Se lo statuscode e' diverso da 200 acquisisce l'eventuale body di errore e genera eccezione
+         int IntStatusCode = ObjHttpResponse.getStatusLine().getStatusCode();
+
+         if (IntStatusCode!=200) {
+            String StrBody = "";
+
+            try {
+               if (ObjEntity!=null) StrBody = EntityUtils.toString(ObjEntity,"UTF-8");
+            } catch (Exception ObjException) {
+               Logger.logMessage(LogLevel.WARN,"Cannot read error response body",ObjException);
+            }
+
+            // Riporta il body su una sola riga e ne limita la lunghezza
+            StrBody = StrBody.replaceAll("\\s*[\\r\\n]+\\s*"," ").trim();
+            if (StrBody.length()>2048) StrBody = StrBody.substring(0,2048)+"...";
+
+            throw new HttpStatusException(IntStatusCode,ObjHttpResponse.getStatusLine().getReasonPhrase(),StrContentType,StrBody);
+         }
+
+         // Se il content-type di response non e' corretto genera eccezione
+         if ((!StrResponseContentType.equals(""))&&(!StrContentType.startsWith(StrResponseContentType))) {
+            throw new Exception("Unexpected content-type ("+StrContentType+")");
+         }
+
+         // Restituisce payload al chiamante (vuoto se la response non ha entity)
+         return (ObjEntity!=null)?(IOUtils.toByteArray(ObjEntity.getContent())):(new byte[0]);
          
-         // Acquisisce response
-         ObjHttpResponse = (HttpResponse) ObjContext.get("response");
+      } finally {
+         
+         // Rilascia response e client (comprese le connessioni del pool)
+         HttpClientUtils.closeQuietly(ObjHttpResponse);
+         HttpClientUtils.closeQuietly(ObjHttpClient);
       }
-
-      // ==================================================================================================================================
-      // Gestisce la response
-      // ==================================================================================================================================
-
-      // Se lo statuscode è diverso da 200 genera eccezione
-      if (ObjHttpResponse.getStatusLine().getStatusCode()!=200) {
-         throw new Exception(ObjHttpResponse.getStatusLine().getReasonPhrase()+" (HTTP "+ObjHttpResponse.getStatusLine().getStatusCode()+")");
-      }
-
-      // Se il content-type di response non è corretto genera eccezione
-      if ((!StrResponseContentType.equals(""))&&
-          (!ObjHttpResponse.getEntity().getContentType().getValue().startsWith(StrResponseContentType))) {
-         throw new Exception("Unexpected content-type ("+ObjHttpResponse.getEntity().getContentType().getValue()+")");
-      }
-
-      // Restituisce payload al chiamante
-      return IOUtils.toByteArray(ObjHttpResponse.getEntity().getContent());
    }
    
    // ==================================================================================================================================

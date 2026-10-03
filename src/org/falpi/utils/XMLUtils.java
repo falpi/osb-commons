@@ -13,84 +13,7 @@ import org.apache.xmlbeans.XmlOptions;
 import com.bea.xbean.xb.xsdschema.SchemaDocument;
 
 public class XMLUtils {
-
-   // ==================================================================================================================================
-   // Estrae valore testuale del primo nodo selezionato dall'espressione xpath
-   // ==================================================================================================================================
-   public static String getTextValue(XmlObject ObjDocument, String StrSelectPath) {
-
-      // Variabli locali
-      XmlCursor ObjCursor;
-      String StrTextValue = "";
-
-      // Seleziona il path richiesto
-      ObjCursor = ObjDocument.newCursor();
-      ObjCursor.selectPath(StrSelectPath);
-
-      // Estrae il valore dell'attributo richiesto
-      if (ObjCursor.toNextSelection())
-         StrTextValue = ObjCursor.getTextValue();
-
-      // Dealloca il cursore
-      ObjCursor.dispose();
-
-      // Restituisce return-code
-      return StrTextValue;
-   }
-
-   // ==================================================================================================================================
-   // Imposta valore testuale del primo nodo selezionato dall'espressione xpath
-   // ==================================================================================================================================
-   public static void setTextValue(XmlObject ObjDocument, String StrTextValue, String StrSelectPath) {
-
-      // Variabli locali
-      XmlCursor ObjCursor;
-
-      // Seleziona il path richiesto
-      ObjCursor = ObjDocument.newCursor();
-      ObjCursor.selectPath(StrSelectPath);
-
-      // Estrae il valore dell'attributo richiesto
-      if (ObjCursor.toNextSelection())
-         ObjCursor.setTextValue(StrTextValue);
-
-      // Dealloca il cursore
-      ObjCursor.dispose();
-   }
-
-   // ==================================================================================================================================
-   // Imposta valore testuale del nodo indicato dall'array di nodi fornito
-   // ==================================================================================================================================
-   public static boolean setTextValueEx(XmlObject ObjDocument, String StrTextValue, String... ArrChildNodes) {
-
-      // Variabli locali
-      boolean BolResult;
-      XmlCursor ObjCursor;
-
-      // Inizializza return-code
-      BolResult = true;
-
-      // Posiziona il cursore XML sul nodo desiderato scorrendo i child
-      ObjCursor = ObjDocument.newCursor();
-      ObjCursor.toStartDoc();
-
-      for (int IntIndex = 0; IntIndex < ArrChildNodes.length; IntIndex++) {
-         BolResult = ObjCursor.toChild(ArrChildNodes[IntIndex]);
-         if (!BolResult)
-            break;
-      }
-
-      // Se il percorso esiste imposta il valore di testo
-      if (BolResult)
-         ObjCursor.setTextValue(StrTextValue);
-
-      // Dealloca il cursore
-      ObjCursor.dispose();
-
-      // Restituisce return-code
-      return BolResult;
-   }
-
+   
    // ==================================================================================================================================
    // Copia un frammento di XML indicato da un xpath su un altro XML nella posizione indicata da xpath
    // ==================================================================================================================================
@@ -174,5 +97,90 @@ public class XMLUtils {
 
       // Restituisce eventuali errori di validazione
       return ObjErrors;
+   }   
+   
+   // ==================================================================================================================================
+   // Estrae valore testuale del primo nodo selezionato dall'espressione xpath
+   // ==================================================================================================================================
+   public static String getTextValue(XmlObject ObjDocument, String StrSelectPath) {
+
+      // Variabli locali
+      XmlCursor ObjCursor;
+      String StrTextValue = "";
+
+      // Seleziona il path richiesto
+      ObjCursor = ObjDocument.newCursor();
+      ObjCursor.selectPath(StrSelectPath);
+
+      // Estrae il valore dell'attributo richiesto
+      if (ObjCursor.toNextSelection())
+         StrTextValue = ObjCursor.getTextValue();
+
+      // Dealloca il cursore
+      ObjCursor.dispose();
+
+      // Restituisce return-code
+      return StrTextValue;
+   }
+
+   // ==================================================================================================================================
+   // Imposta valore testuale del primo nodo selezionato dall'espressione xpath
+   // ==================================================================================================================================
+   public static void setTextValue(XmlObject ObjDocument, String StrTextValue, String StrSelectPath) {
+
+      // Variabli locali
+      XmlCursor ObjCursor;
+
+      // Seleziona il path richiesto
+      ObjCursor = ObjDocument.newCursor();
+      ObjCursor.selectPath(StrSelectPath);
+
+      // Estrae il valore dell'attributo richiesto
+      if (ObjCursor.toNextSelection())
+         ObjCursor.setTextValue(StrTextValue);
+
+      // Dealloca il cursore
+      ObjCursor.dispose();
+   }
+
+   // ==================================================================================================================================
+   // Imposta valore testuale del nodo indicato dall'array di nodi fornito
+   // ==================================================================================================================================
+   public static boolean setTextValueEx(XmlObject ObjDocument, String StrTextValue, String... ArrChildNodes) {
+
+      // Variabli locali
+      boolean BolResult;
+      XmlCursor ObjCursor;
+
+      // Inizializza return-code
+      BolResult = true;
+
+      // Posiziona il cursore XML sul nodo desiderato scorrendo i child
+      ObjCursor = ObjDocument.newCursor();
+      ObjCursor.toStartDoc();
+
+      for (int IntIndex = 0; IntIndex < ArrChildNodes.length; IntIndex++) {
+         BolResult = ObjCursor.toChild(ArrChildNodes[IntIndex]);
+         if (!BolResult)
+            break;
+      }
+
+      // Se il percorso esiste imposta il valore di testo
+      if (BolResult)
+         ObjCursor.setTextValue(StrTextValue);
+
+      // Dealloca il cursore
+      ObjCursor.dispose();
+
+      // Restituisce return-code
+      return BolResult;
+   }
+
+   // ==================================================================================================================================
+   // Estrae valore testuale dell'attributo 
+   // ==================================================================================================================================
+   public static String getAttributeValue(XmlObject ObjElement, String StrAttributeName, String StrNamespaceURI) {
+      XmlObject ObjAttributeValue = ObjElement.selectAttribute(StrNamespaceURI,StrAttributeName);
+      return (ObjAttributeValue!=null)?(ObjAttributeValue.newCursor().getTextValue()):(null);
    }
 }

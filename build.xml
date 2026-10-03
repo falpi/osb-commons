@@ -2,8 +2,8 @@
 ##################################################################################################################################
 VERSIONING
 ##################################################################################################################################
-$Revision$
-$Date$
+$Revision: 2074 $
+$Date: 2026-10-03 17:20:29 +0200 (Sat, 03 Oct 2026) $
 ##################################################################################################################################
 -->
 <project name="Build" default="all" basedir="." xmlns:if="ant:if" xmlns:unless="ant:unless">
@@ -32,10 +32,6 @@ $Date$
     <target name="target.auto" unless="targetConfig">    
       <property name="weblogicDir" value="${oracle.home}/.." />       
       <switch value="${java.specification.version}">
-        <case value="1.7">
-           <property name="targetConfig" value="12.1.3"/>
-           <property name="javaHomeDir" value="${java.home}/.." />
-        </case>
         <case value="1.8">
            <property name="targetConfig" value="12.2.1"/>
            <property name="javaHomeDir" value="${java.home}/.." />
@@ -54,11 +50,6 @@ $Date$
       </switch>      
     </target>    
     
-    <!-- target to force fmw 12.1.3 runtime environment -->
-    <target name="target.1213">
-       <property name="targetConfig" value="12.1.3"/>
-    </target>
-
     <!-- target to force fmw 12.2.1 runtime environment -->
     <target name="target.1221">
        <property name="targetConfig" value="12.2.1"/>
@@ -82,14 +73,6 @@ $Date$
         <echo message="Selected target: ${targetConfig}"/>
         
         <switch value="${targetConfig}">
-          <case value="12.1.3">
-            <property name="shadedLibraries" value="false"/>
-            <property name="weblogicVersion" value="12.1.3"/>
-            <property name="javaHomeDir" value="C:/Programmi/Java/jdk1.7"/>
-            <property name="weblogicDir" value="C:/Oracle/Middleware/12.1.3"/>   
-            <property name="targetLibraries" value="target-libraries-12.1.3"/>
-            <property name="builtinProviders" value="cssWlSecurityProviders.jar"/>
-          </case>
           <case value="12.2.1">
             <property name="shadedLibraries" value="true"/>
             <property name="weblogicVersion" value="12.2.1"/>
@@ -123,11 +106,6 @@ $Date$
             <pathelement location="${libDir}/commons-codec-1.11.jar"/>
         </path>         
         
-        <!-- dependencies for target 12.1.3 (jdk7) -->
-        <path id="target-libraries-12.1.3">         
-           <pathelement location="${libDir}/nimbus-jose-jwt-9.48.jar"/>
-        </path>
-
         <!-- dependencies for target 12.2.1 (jdk8) -->
         <path id="target-libraries-12.2.1">         
             <pathelement location="${libDir}/tink-1.15.0.jar"/>
@@ -180,7 +158,7 @@ $Date$
         <tstamp><format property="buildTimestamp" pattern="yyyyMMdd" /></tstamp> 
 
         <!-- versione della libreria -->
-        <property name="libraryVersion" value="1.0.0" />
+        <property name="libraryVersion" value="1.1.0" />
                         
         <!-- output file name -->    
         <property name="outputFilePrefix" value="osb-commons" />
@@ -195,14 +173,9 @@ $Date$
     <!-- #################################################################################################### -->
 
     <target name="all" depends="target.auto,prepare,build,deploy"/>
-    <target name="all.1213" depends="target.1213,all"/>
     <target name="all.1221" depends="target.1221,all"/>    
     <target name="all.1412" depends="target.1412,all"/>    
-    
-    <target name="build.1213" depends="target.1213,build"/>
-    <target name="build.1221" depends="target.1221,build"/>
-    <target name="build.1412" depends="target.1412,build"/>
-   
+       
     <target name="clean" depends="target.auto,prepare">
        <delete dir="${buildDir}" failonerror="false" />
        <echo message="Clean finish"></echo>
@@ -223,13 +196,12 @@ $Date$
         <echo message="Build finish"></echo>
     </target>
     
+    <target name="build.1221" depends="target.1221,build"/>
+    <target name="build.1412" depends="target.1412,build"/>
+    
     <!-- ==================================================================================================== -->
     <!-- Deploy task  -->
     <!-- ==================================================================================================== -->
-    <target name="deploy.1213" depends="target.1213,deploy"/>
-    <target name="deploy.1221" depends="target.1221,deploy"/>
-    <target name="deploy.1412" depends="target.1412,deploy"/>
-
     <target name="deploy" depends="target.auto,prepare">
            
        <!-- se non esiste crea directory di deploy -->       
@@ -253,27 +225,7 @@ $Date$
              </archives>
           </restrict>
        </jar>
-       
-       <!-- :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::: -->
-       <!-- remove deployed files and redeploy the new ones -->
-       <!-- :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::: -->       
-       <for param="domainHome">
-          <path>
-           <dirset dir="${env.APPDATA}/JDeveloper">
-             <include name="system${weblogicVersion}*"/>
-           </dirset>
-         </path>
-         <sequential>
-            <property name="domainLibDir" value="@{domainHome}/DefaultDomain/lib"/>
-            <echo message="Domain Lib : ${domainLibDir}"/>
-            <delete>
-               <fileset dir="${domainLibDir}" includes="${outputFilePrefix}*.*" />
-            </delete>
-            <copy todir="${domainLibDir}" file="${deployDir}/${outputFileName}.jar"/>
-         </sequential>
-       </for>
-       <!-- :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::: -->
-       
+              
        <echo message="Deploy finish"></echo>
        
     </target>       

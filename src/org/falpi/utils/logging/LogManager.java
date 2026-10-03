@@ -10,6 +10,13 @@ import org.falpi.utils.JavaUtils;
 import org.falpi.utils.StringUtils;
 
 public class LogManager {
+   
+   // ==================================================================================================================================
+   // Variabili globali statiche di thread
+   // ==================================================================================================================================
+   
+   // Predispone per eventuale logger di thread
+   public static final ThreadLocal<LogManager> defaultLogger = new ThreadLocal<LogManager>();
 
    // ==================================================================================================================================
    // Variabili di istanza

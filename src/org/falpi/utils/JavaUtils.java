@@ -12,13 +12,26 @@ import java.net.URLClassLoader;
 
 import java.text.SimpleDateFormat;
 
+import java.util.Arrays;
 import java.util.Date;
+import java.util.Properties;
 
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineFactory;
 import javax.script.ScriptEngineManager;
 
 public class JavaUtils {
+
+   // ==================================================================================================================================
+   // Helper per l'inizializzazione inline di properties
+   // ==================================================================================================================================
+   public static Properties createProperties(String... ArrKeyValuePairs) {
+       Properties ObjProperties = new Properties();
+       for (int IntIndex=0;IntIndex+1<ArrKeyValuePairs.length;IntIndex+=2) {
+           ObjProperties.setProperty(ArrKeyValuePairs[IntIndex],ArrKeyValuePairs[IntIndex + 1]);
+       }
+       return ObjProperties;
+   }  
 
    // ==================================================================================================================================
    // Gestione del tempo
@@ -101,11 +114,27 @@ public class JavaUtils {
    // Acquisisce un attributo anche se privato mediante reflection
    // ==================================================================================================================================
    public static Object getField(Object ObjInstance, String StrField) throws Exception {      
-      Field ObjHeadersField = ObjInstance.getClass().getDeclaredField(StrField);
-      ObjHeadersField.setAccessible(true);
-      return ObjHeadersField.get(ObjInstance);
+      Field ObjField = ObjInstance.getClass().getDeclaredField(StrField);
+      ObjField.setAccessible(true);
+      return ObjField.get(ObjInstance);
    }
    
+   // ==================================================================================================================================
+   // Risale una catena di classi attraverso la specifica di una lista di attributi da utilizzare
+   // ==================================================================================================================================
+   public static Object getFieldNested(Object ObjInstance, String... ArrFields) throws Exception {     
+      Field ObjField = null;
+      if (ArrFields.length>0) {
+         ObjField = ObjInstance.getClass().getDeclaredField(ArrFields[0]);
+         ObjField.setAccessible(true);
+         ObjField = (Field) ObjField.get(ObjInstance);
+         if (ArrFields.length>1) {
+            ObjField = (Field) getFieldNested(ObjField,Arrays.copyOfRange(ArrFields,1,ArrFields.length));
+         }
+      }
+      return ObjField;
+   } 
+      
    // ==================================================================================================================================
    // Acquisisce versione java
    // ==================================================================================================================================

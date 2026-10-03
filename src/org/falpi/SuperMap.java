@@ -4,27 +4,27 @@ import java.util.ArrayList;
 import java.util.Properties;
 import java.util.LinkedHashMap;
 
-public class SuperMap<T> extends LinkedHashMap<String,T> {
+public class SuperMap extends LinkedHashMap<String,Object> {
 
    @SuppressWarnings("compatibility")
    private static final long serialVersionUID = 1L;
-
+   
    // ==================================================================================================================================
    // Variabili istanza
    // ==================================================================================================================================
    
    // Elemento speciale per espressioni regolari
-   private transient RegexMap<T> ObjRegExMap = new RegexMap<T>();   
+   private transient RegexMap ObjRegExMap = new RegexMap();   
       
    // ==================================================================================================================================
    // Motodi per accesso a mappa regex
    // ==================================================================================================================================
-   public ArrayList<T> getRegex(String StrKey,Boolean BolFirst) {
+   public ArrayList<Object> getRegex(String StrKey,Boolean BolFirst) {
       return ObjRegExMap.getRegex(StrKey,BolFirst);
    }
-
-   public T putRegex(String StrRegexKey,T Value) {
-      return ObjRegExMap.put(StrRegexKey,Value);
+      
+   public Object putRegex(String StrRegexKey,Object ObjValue) {
+      return ObjRegExMap.put(StrRegexKey,ObjValue);
    }
 
    // ==================================================================================================================================
@@ -35,8 +35,12 @@ public class SuperMap<T> extends LinkedHashMap<String,T> {
    }  
 
    public String getString(String StrKey) {
+      return getString(StrKey,"");
+   }
+
+   public String getString(String StrKey,String StrDefault) {
       Object ObjKey = get(StrKey);
-      return (ObjKey instanceof Integer)?(Integer.toString((Integer)ObjKey)):((String)ObjKey);
+      return (ObjKey==null)?(""):((ObjKey instanceof Integer)?(Integer.toString((Integer)ObjKey)):(ObjKey.toString()));
    }
 
    public String[] getStringArray(String StrKey) {

@@ -6,8 +6,12 @@ import java.nio.charset.StandardCharsets;
 import java.lang.reflect.Method;
 import java.lang.reflect.Constructor;
 import java.security.AccessController;
-import javax.servlet.http.HttpServletRequest;
 
+import javax.xml.bind.DatatypeConverter;
+import javax.servlet.http.HttpServletRequest;
+import javax.management.InvalidAttributeValueException;
+
+import weblogic.management.EncryptionHelper;
 import weblogic.management.security.ProviderMBean;
 import weblogic.management.provider.ManagementService;
 import weblogic.security.service.PrivilegedActions;
@@ -83,9 +87,77 @@ public class WLSUtils {
    // ##################################################################################################################################
    
    // ==================================================================================================================================
-   // Aggiunge un header http agli header della servlet di request
+   // Acquisisce handle per accesso al kernel wls
    // ==================================================================================================================================
-   public static String addHeader(HttpServletRequest ObjRequest,String StrHeaderName,String StrHeaderValue) throws Exception {
+   public static AuthenticatedSubject getKernelId() {   
+      return ObjKernelId;
+   }
+   
+   // ==================================================================================================================================
+   // Acquisisce l'authenticator integrato di wls
+   // ==================================================================================================================================      
+   public static Authenticator getAuthenticator(ProviderMBean ObjMBean, String StrRealmName,String StrDomainName) throws Exception { 
+      return new Authenticator(ObjMBean,StrRealmName,StrDomainName);
+   }   
+   
+   // ==================================================================================================================================
+   // Acquisisce nome dominio wls
+   // ==================================================================================================================================      
+   public static String getDomainName() { 
+      return ManagementService.getRuntimeAccess(ObjKernelId).getDomainName();
+   }
+
+   // ==================================================================================================================================
+   // Acquisisce nome del managed server wls
+   // ==================================================================================================================================      
+   public static String getManagedName() { 
+      return ManagementService.getRuntimeAccess(ObjKernelId).getServerName();
+   }   
+   
+   // ==================================================================================================================================
+   // Servizi di cifratura/decifratura infrastrutturali
+   // ==================================================================================================================================
+   public static String encrypt(byte[] ObjPlainValue) {
+      return DatatypeConverter.printBase64Binary(EncryptionHelper.encrypt(ObjPlainValue));
+   }
+
+   public static String encryptString(String StrPlainValue) {
+      return DatatypeConverter.printBase64Binary(EncryptionHelper.encryptString(StrPlainValue));
+   }
+
+   public static byte[] decrypt(String StrEncryptedValue) {
+      return EncryptionHelper.decrypt(DatatypeConverter.parseBase64Binary(StrEncryptedValue),ObjKernelId);
+   }
+
+   public static String decryptString(String StrEncryptedValue) {
+      return EncryptionHelper.decryptString(DatatypeConverter.parseBase64Binary(StrEncryptedValue),ObjKernelId);
+   }   
+
+   // ==================================================================================================================================
+   // Helper per gestione cifratura
+   // ==================================================================================================================================
+   public static String encryptionHelper(String StrValue) throws InvalidAttributeValueException {
+      
+      if (!StrValue.equals("")) {
+         if (!StrValue.startsWith("encrypted:")) {
+            try { StrValue = "encrypted:"+encryptString(StrValue); } catch (Exception ObjException) { throw new InvalidAttributeValueException("Error while encrypting value"); }
+         } else {
+            String[] ArrParts = StrValue.split(":");
+            if ((ArrParts.length!=2)||ArrParts[1].isEmpty()) throw new InvalidAttributeValueException("Invalid format for encrypted attribute"); 
+            try { decryptString(ArrParts[1]); } catch (Exception ObjException) { throw new InvalidAttributeValueException("Error while decrypting value"); }
+         }        
+      }
+      return StrValue;
+   }
+   
+   public static String decryptionHelper(String StrValue) throws InvalidAttributeValueException {
+      return (!StrValue.equals(""))?(WLSUtils.decryptString(WLSUtils.encryptionHelper(StrValue).split(":")[1])):("");
+   }   
+   
+   // ==================================================================================================================================
+   // Helper per aggiunta di header alla request servlet che non espone il metodo (a differenza della response servlet)
+   // ==================================================================================================================================
+   public static String addRequestHeader(HttpServletRequest ObjRequest,String StrHeaderName,String StrHeaderValue) throws Exception {
       
       // Accede agli header della request
       Object ObjHeaders = JavaUtils.getField(ObjRequest,"headers");
@@ -107,32 +179,4 @@ public class WLSUtils {
       // Restituisce null in quanto header non esisteva
       return null;
    }
-   
-   // ==================================================================================================================================
-   // Acquisisce handle per accesso al kernel wls
-   // ==================================================================================================================================
-   public static AuthenticatedSubject getKernelId() {   
-      return ObjKernelId;
-   }
-
-   // ==================================================================================================================================
-   // Acquisisce nome dominio wls
-   // ==================================================================================================================================      
-   public static String getDomainName() { 
-      return ManagementService.getRuntimeAccess(ObjKernelId).getDomainName();
-   }
-
-   // ==================================================================================================================================
-   // Acquisisce nome del managed server wls
-   // ==================================================================================================================================      
-   public static String getManagedName() { 
-      return ManagementService.getRuntimeAccess(ObjKernelId).getServerName();
-   }   
-   
-   // ==================================================================================================================================
-   // Acquisisce l'authenticator integrato di wls
-   // ==================================================================================================================================      
-   public static Authenticator getAuthenticator(ProviderMBean ObjMBean, String StrRealmName,String StrDomainName) throws Exception { 
-      return new Authenticator(ObjMBean,StrRealmName,StrDomainName);
-   }   
 }
