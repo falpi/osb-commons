@@ -91,7 +91,7 @@ public class HttpUtils {
       // ==================================================================================================================================
       CloseableHttpResponse ObjHttpResponse = null;
       final HttpRequestBase ObjHttpRequest;
-      final CloseableHttpClient ObjHttpClient;
+      CloseableHttpClient ObjHttpClient = null;
       final HashMap<String,Object> ObjContext = new HashMap<String,Object>();      
       ArrayList<CustomKrb5LoginModule> ArrLoginContext = new ArrayList<CustomKrb5LoginModule>();
       
@@ -99,15 +99,16 @@ public class HttpUtils {
       // Prepara la request e la esegue
       // ==================================================================================================================================
             
-      // Prepara client di connessione
-      ObjHttpClient = buildClient(StrRequestURL,
-                                  StrHostAuthMode,StrHostUserName,StrHostPassword,  
-                                  StrProxyServerMode,StrProxyUserName,StrProxyPassword,
-                                  StrProxyHost,IntProxyPort,BolSSLEnforce,                              
-                                  IntConnectTimeout,IntReadTimeout,
-                                  ArrLoginContext,Logger);
-
       try {
+
+         // Prepara client di connessione (gli eventuali login kerberos sono rilasciati nel blocco finally anche se fallisce)
+         ObjHttpClient = buildClient(StrRequestURL,
+                                     StrHostAuthMode,StrHostUserName,StrHostPassword,
+                                     StrProxyServerMode,StrProxyUserName,StrProxyPassword,
+                                     StrProxyHost,IntProxyPort,BolSSLEnforce,
+                                     IntConnectTimeout,IntReadTimeout,
+                                     ArrLoginContext,Logger);
+
          // Prepara request
          ObjHttpRequest = buildRequest(ObjHttpMethod,StrRequestURL,StrRequestContentType,ObjRequestBody);
 
@@ -122,26 +123,23 @@ public class HttpUtils {
             // Acquisisce i login context kerberos (al momento supportato solo un context)
             CustomKrb5LoginModule ObjLoginModule = ArrLoginContext.get(0);
             Subject ObjSubject = ObjLoginModule.getSubject();
-         
+            final CloseableHttpClient ObjKerberosClient = ObjHttpClient;
+
             // Racchiude la request in contesto privilegiato
             PrivilegedAction<Boolean> ObjAction = new PrivilegedAction<Boolean>() {
                @Override
                public Boolean run() {
                   try {
-                     ObjContext.put("response",ObjHttpClient.execute(ObjHttpRequest));
+                     ObjContext.put("response",ObjKerberosClient.execute(ObjHttpRequest));
                   } catch (Exception ObjException) {
                      ObjContext.put("exception",ObjException);
-                  } 
+                  }
                   return true;
                }
             };
 
-            // Esecuzione privilegiata della request
+            // Esecuzione privilegiata della request (il logout avviene nel blocco finally)
             Subject.doAs(ObjSubject, ObjAction);
-         
-            // Esegue logout e svuota l'array
-            ObjLoginModule.logout();
-            ArrLoginContext.clear();
          
             // Se c'è stata eccezione la genera
             if (ObjContext.containsKey("exception")) {
@@ -160,10 +158,10 @@ public class HttpUtils {
          HttpEntity ObjEntity = ObjHttpResponse.getEntity();
          String StrContentType = ((ObjEntity!=null)&&(ObjEntity.getContentType()!=null))?(ObjEntity.getContentType().getValue()):("");
 
-         // Se lo statuscode e' diverso da 200 acquisisce l'eventuale body di errore e genera eccezione
+         // Se lo statuscode non e' di successo (2xx) acquisisce l'eventuale body di errore e genera eccezione
          int IntStatusCode = ObjHttpResponse.getStatusLine().getStatusCode();
 
-         if (IntStatusCode!=200) {
+         if ((IntStatusCode<200)||(IntStatusCode>299)) {
             String StrBody = "";
 
             try {
@@ -188,10 +186,20 @@ public class HttpUtils {
          return (ObjEntity!=null)?(IOUtils.toByteArray(ObjEntity.getContent())):(new byte[0]);
          
       } finally {
-         
+
          // Rilascia response e client (comprese le connessioni del pool)
          HttpClientUtils.closeQuietly(ObjHttpResponse);
          HttpClientUtils.closeQuietly(ObjHttpClient);
+
+         // Esegue il logout dei login context kerberos eventualmente allocati, anche in caso di errore
+         for (CustomKrb5LoginModule ObjLoginModule : ArrLoginContext) {
+            try {
+               ObjLoginModule.logout();
+            } catch (Exception ObjException) {
+               Logger.logMessage(LogLevel.WARN,"Kerberos logout error",ObjException);
+            }
+         }
+         ArrLoginContext.clear();
       }
    }
    
@@ -217,7 +225,7 @@ public class HttpUtils {
       }
       
       // Se il content type è definito lo aggiunge come header
-      if (StrRequestContentType!= "") ObjHttpRequest.addHeader("Content-Type", StrRequestContentType);
+      if ((StrRequestContentType!=null)&&(!StrRequestContentType.isEmpty())) ObjHttpRequest.addHeader("Content-Type", StrRequestContentType);
       
       // Restrituisce request
       return ObjHttpRequest;
@@ -340,7 +348,13 @@ public class HttpUtils {
                      public Principal getUserPrincipal() { return null; } 
                   });
                
-               break;        
+               break;
+
+            // ----------------------------------------------------------------------------------------------------------------------------------
+            // Modalita' non prevista: genera eccezione invece di procedere senza autenticazione
+            // ----------------------------------------------------------------------------------------------------------------------------------
+            default:
+               throw new Exception("Unsupported host authentication mode '"+StrHostAuthMode+"'");
             }
       }
 
@@ -437,7 +451,19 @@ public class HttpUtils {
                      public Principal getUserPrincipal() { return null; } 
                   });
                
-               break;        
+               break;
+
+            // ----------------------------------------------------------------------------------------------------------------------------------
+            // Proxy senza autenticazione
+            // ----------------------------------------------------------------------------------------------------------------------------------
+            case "ANONYMOUS":
+               break;
+
+            // ----------------------------------------------------------------------------------------------------------------------------------
+            // Modalita' non prevista: genera eccezione invece di procedere senza autenticazione
+            // ----------------------------------------------------------------------------------------------------------------------------------
+            default:
+               throw new Exception("Unsupported proxy server mode '"+StrProxyServerMode+"'");
          }
       }
 

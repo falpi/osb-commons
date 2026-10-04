@@ -71,7 +71,7 @@ public abstract class JWTProvider<T> {
    public abstract Map getPayload();
 
    // ==================================================================================================================================
-   // Acquisisce il l'expireTime del token
+   // Acquisisce il l'expireTime del token (epoch in secondi, 0 se il token non ha il claim "exp")
    // ==================================================================================================================================
    public abstract long getExpiration() throws Exception;
 

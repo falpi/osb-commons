@@ -69,7 +69,7 @@ public class JWTCache {
       
       // Se la chiave esiste ma è scaduta resetta riferimento
       if ((ObjEntry!=null)&&(IntTimeStamp>=(ObjEntry.timeStamp+IntKeysTTL))) {
-         keysCache.remove(StrKeyID);
+         keysCache.remove(StrKeyID,ObjEntry);
          ObjEntry = null;
       }
          
@@ -99,7 +99,7 @@ public class JWTCache {
       
       // Se il token esiste ma è scaduto in base alla sua scadenza o alla durata fornita lo rimuove dalla cache
       if ((ObjEntry!=null)&&((IntTimeStamp>=ObjEntry.token.getExpiration())||(IntTimeStamp>=(ObjEntry.timeStamp+IntTokensTTL)))) {
-         tokensCache.remove(StrTokenID);
+         tokensCache.remove(StrTokenID,ObjEntry);
          ObjEntry = null;
       }
       

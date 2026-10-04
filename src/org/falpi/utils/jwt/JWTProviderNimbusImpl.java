@@ -68,7 +68,10 @@ public class JWTProviderNimbusImpl extends JWTProvider<SignedJWT> {
 
    @Override
    public long getExpiration() throws Exception {
-      return token.getJWTClaimsSet().getExpirationTime().getTime()/1000;
+      
+      // Un token senza claim "exp" restituisce 0, cioe' e' considerato gia' scaduto (non viene riutilizzato dalla cache)
+      java.util.Date ObjExpiration = token.getJWTClaimsSet().getExpirationTime();
+      return (ObjExpiration==null)?(0):(ObjExpiration.getTime()/1000);
    }
 
    @Override

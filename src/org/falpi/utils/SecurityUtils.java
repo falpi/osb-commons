@@ -35,12 +35,10 @@ public class SecurityUtils {
       private Subject ObjSubject = new Subject();
              
       // Costruttore
-      @SuppressWarnings("unchecked")
       CustomKrb5LoginModule(String StrPrincipal, String StrPassword) {
          
-         Subject ObjSubject = new Subject();
-         Map<String,Object> ObjState = new HashMap();
-         Map<String,Object> ObjOptions = new HashMap();
+         Map<String,Object> ObjState = new HashMap<>();
+         Map<String,Object> ObjOptions = new HashMap<>();
 
          ObjOptions.put("doNotPrompt", "true");
          ObjOptions.put("useFirstPass", "true");
@@ -89,7 +87,7 @@ public class SecurityUtils {
          ObjKerberosAuthConfig.deleteOnExit();
                                 
          // Imposta proprietà di sistema kerberos 
-         System.setProperty("java.security.krb5.conf",ObjKerberosAuthConfig.toURI().toString());
+         System.setProperty("java.security.krb5.conf",ObjKerberosAuthConfig.getAbsolutePath());
          System.setProperty("javax.security.auth.useSubjectCredsOnly","false");         
       }
       
