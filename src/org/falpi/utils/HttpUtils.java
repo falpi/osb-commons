@@ -84,7 +84,7 @@ public class HttpUtils {
                               String StrHostAuthMode,String StrHostUserName,String StrHostPassword,  
                               String StrProxyServerMode,String StrProxyUserName,String StrProxyPassword,
                               String StrProxyHost,int IntProxyPort,Boolean BolSSLEnforce,                         
-                              int IntConnectTimeout,int IntRequestTimeout,LogManager Logger) throws Exception {
+                              int IntConnectTimeout,int IntReadTimeout,LogManager Logger) throws Exception {
 
       // ==================================================================================================================================
       // Dichiara variabili
@@ -104,7 +104,7 @@ public class HttpUtils {
                                   StrHostAuthMode,StrHostUserName,StrHostPassword,  
                                   StrProxyServerMode,StrProxyUserName,StrProxyPassword,
                                   StrProxyHost,IntProxyPort,BolSSLEnforce,                              
-                                  IntConnectTimeout,IntRequestTimeout,
+                                  IntConnectTimeout,IntReadTimeout,
                                   ArrLoginContext,Logger);
 
       try {
@@ -230,7 +230,7 @@ public class HttpUtils {
                                                  String StrHostAuthMode,String StrHostUserName,String StrHostPassword,  
                                                  String StrProxyServerMode,String StrProxyUserName,String StrProxyPassword,
                                                  String StrProxyHost,int IntProxyPort,Boolean BolSSLEnforce,                              
-                                                 int IntConnectTimeout,int IntRequestTimeout,
+                                                 int IntConnectTimeout,int IntReadTimeout,
                                                  ArrayList<CustomKrb5LoginModule> ArrLoginContext,LogManager Logger) throws Exception {
                
       // ==================================================================================================================================
@@ -245,10 +245,11 @@ public class HttpUtils {
       // Prepara configurazione request di base
       // ==================================================================================================================================
 
-      // Configurazione base
+      // Configurazione base: timeout di connessione, di lettura (attesa dei dati sul socket) e di attesa della connessione dal pool
       RequestConfig.Builder ObjRequestConfigBuilder =
          RequestConfig.custom().setConnectTimeout(IntConnectTimeout * 1000)
-                               .setConnectionRequestTimeout(IntRequestTimeout * 1000);
+                               .setSocketTimeout(IntReadTimeout * 1000)
+                               .setConnectionRequestTimeout(IntConnectTimeout * 1000);
               
       // ==================================================================================================================================
       // Prepara configurazione per autenticazione

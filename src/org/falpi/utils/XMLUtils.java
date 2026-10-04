@@ -28,41 +28,46 @@ public class XMLUtils {
       ObjSourceCursor = ObjSource.newCursor();
       ObjDestinationCursor = ObjDestination.newCursor();
 
-      // Se necessario corregge il path sorgente
-      if (StrSourcePath.equals("") && BolRootElement)
-         StrSourcePath = "/*";
-
-      // Se necessario posiziona il cursore sorgente
-      if (!StrSourcePath.equals("")) {
-         ObjSourceCursor.selectPath(StrSourcePath);
-         if (!ObjSourceCursor.toNextSelection())
-            throw new RuntimeException("Unable to find source path '" + StrSourcePath + "'");
-      }
-
-      // Posiziona il cursore di destinazione
-      ObjDestinationCursor.selectPath(StrDestinationPath);
-      if (!ObjDestinationCursor.toNextSelection())
-         throw new RuntimeException("Unable to find target path '" + StrDestinationPath + "'");
-
-      // Esegue la copia da sorgente a destinazione
-      ObjDestinationCursor.toFirstContentToken();
-
       try {
-         do {
-            if (BolRootElement) {
-               ObjSourceCursor.copyXml(ObjDestinationCursor);
-            } else {
-               ObjSourceCursor.copyXmlContents(ObjDestinationCursor);
-            }
-         } while (ObjSourceCursor.toNextSelection());
-      } catch (Exception ObjException) {
-         throw new RuntimeException("Error while coping source path '" + StrSourcePath + "' to target path '" +
-                                    StrDestinationPath + "' :" + ObjException.toString());
-      }
 
-      // Chiude i cursori aperti
-      ObjSourceCursor.dispose();
-      ObjDestinationCursor.dispose();
+         // Se necessario corregge il path sorgente
+         if (StrSourcePath.equals("") && BolRootElement)
+            StrSourcePath = "/*";
+
+         // Se necessario posiziona il cursore sorgente
+         if (!StrSourcePath.equals("")) {
+            ObjSourceCursor.selectPath(StrSourcePath);
+            if (!ObjSourceCursor.toNextSelection())
+               throw new RuntimeException("Unable to find source path '" + StrSourcePath + "'");
+         }
+
+         // Posiziona il cursore di destinazione
+         ObjDestinationCursor.selectPath(StrDestinationPath);
+         if (!ObjDestinationCursor.toNextSelection())
+            throw new RuntimeException("Unable to find target path '" + StrDestinationPath + "'");
+
+         // Esegue la copia da sorgente a destinazione
+         ObjDestinationCursor.toFirstContentToken();
+
+         try {
+            do {
+               if (BolRootElement) {
+                  ObjSourceCursor.copyXml(ObjDestinationCursor);
+               } else {
+                  ObjSourceCursor.copyXmlContents(ObjDestinationCursor);
+               }
+            } while (ObjSourceCursor.toNextSelection());
+         } catch (Exception ObjException) {
+            throw new RuntimeException("Error while coping source path '" + StrSourcePath + "' to target path '" +
+                                       StrDestinationPath + "' :" + ObjException.toString());
+         }
+
+      } finally {
+
+         // Chiude i cursori aperti, anche in caso di errore
+         ObjSourceCursor.dispose();
+         ObjDestinationCursor.dispose();
+      }
    }
 
    // ==================================================================================================================================
@@ -110,14 +115,19 @@ public class XMLUtils {
 
       // Seleziona il path richiesto
       ObjCursor = ObjDocument.newCursor();
-      ObjCursor.selectPath(StrSelectPath);
 
-      // Estrae il valore dell'attributo richiesto
-      if (ObjCursor.toNextSelection())
-         StrTextValue = ObjCursor.getTextValue();
+      try {
+         ObjCursor.selectPath(StrSelectPath);
 
-      // Dealloca il cursore
-      ObjCursor.dispose();
+         // Estrae il valore dell'attributo richiesto
+         if (ObjCursor.toNextSelection())
+            StrTextValue = ObjCursor.getTextValue();
+
+      } finally {
+
+         // Dealloca il cursore
+         ObjCursor.dispose();
+      }
 
       // Restituisce return-code
       return StrTextValue;
@@ -133,14 +143,19 @@ public class XMLUtils {
 
       // Seleziona il path richiesto
       ObjCursor = ObjDocument.newCursor();
-      ObjCursor.selectPath(StrSelectPath);
 
-      // Estrae il valore dell'attributo richiesto
-      if (ObjCursor.toNextSelection())
-         ObjCursor.setTextValue(StrTextValue);
+      try {
+         ObjCursor.selectPath(StrSelectPath);
 
-      // Dealloca il cursore
-      ObjCursor.dispose();
+         // Estrae il valore dell'attributo richiesto
+         if (ObjCursor.toNextSelection())
+            ObjCursor.setTextValue(StrTextValue);
+
+      } finally {
+
+         // Dealloca il cursore
+         ObjCursor.dispose();
+      }
    }
 
    // ==================================================================================================================================
@@ -157,20 +172,25 @@ public class XMLUtils {
 
       // Posiziona il cursore XML sul nodo desiderato scorrendo i child
       ObjCursor = ObjDocument.newCursor();
-      ObjCursor.toStartDoc();
 
-      for (int IntIndex = 0; IntIndex < ArrChildNodes.length; IntIndex++) {
-         BolResult = ObjCursor.toChild(ArrChildNodes[IntIndex]);
-         if (!BolResult)
-            break;
+      try {
+         ObjCursor.toStartDoc();
+
+         for (int IntIndex = 0; IntIndex < ArrChildNodes.length; IntIndex++) {
+            BolResult = ObjCursor.toChild(ArrChildNodes[IntIndex]);
+            if (!BolResult)
+               break;
+         }
+
+         // Se il percorso esiste imposta il valore di testo
+         if (BolResult)
+            ObjCursor.setTextValue(StrTextValue);
+
+      } finally {
+
+         // Dealloca il cursore
+         ObjCursor.dispose();
       }
-
-      // Se il percorso esiste imposta il valore di testo
-      if (BolResult)
-         ObjCursor.setTextValue(StrTextValue);
-
-      // Dealloca il cursore
-      ObjCursor.dispose();
 
       // Restituisce return-code
       return BolResult;
@@ -181,6 +201,14 @@ public class XMLUtils {
    // ==================================================================================================================================
    public static String getAttributeValue(XmlObject ObjElement, String StrAttributeName, String StrNamespaceURI) {
       XmlObject ObjAttributeValue = ObjElement.selectAttribute(StrNamespaceURI,StrAttributeName);
-      return (ObjAttributeValue!=null)?(ObjAttributeValue.newCursor().getTextValue()):(null);
+      if (ObjAttributeValue==null) return null;
+
+      // Legge il valore testuale tramite cursore, rilasciandolo in ogni caso
+      XmlCursor ObjCursor = ObjAttributeValue.newCursor();
+      try {
+         return ObjCursor.getTextValue();
+      } finally {
+         ObjCursor.dispose();
+      }
    }
 }

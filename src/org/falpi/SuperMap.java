@@ -40,7 +40,7 @@ public class SuperMap extends LinkedHashMap<String,Object> {
 
    public String getString(String StrKey,String StrDefault) {
       Object ObjKey = get(StrKey);
-      return (ObjKey==null)?(""):((ObjKey instanceof Integer)?(Integer.toString((Integer)ObjKey)):(ObjKey.toString()));
+      return (ObjKey==null)?(StrDefault):((ObjKey instanceof Integer)?(Integer.toString((Integer)ObjKey)):(ObjKey.toString()));
    }
 
    public String[] getStringArray(String StrKey) {
