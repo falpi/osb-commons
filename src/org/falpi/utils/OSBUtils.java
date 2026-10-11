@@ -153,17 +153,17 @@ public class OSBUtils {
       }      
    }
    
-   // Sottoclasse per la gestione del caching delle risorse
-   private static class ResourceCacheEntry {  
-      
+   // Sottoclasse per la gestione del caching delle risorse.
+   private static class ResourceCacheEntry {
+
       private long timeStamp;
-      private XmlObject resource;  
-      
-      ResourceCacheEntry(XmlObject ObjResource,long IntTimeStamp) {
-         this.resource = ObjResource;
+      private String text;
+
+      ResourceCacheEntry(String StrText,long IntTimeStamp) {
+         this.text = StrText;
          this.timeStamp = IntTimeStamp;
-      }      
-   }   
+      }
+   }
    
    // ##############################################################################################
    // Variabili 
@@ -261,13 +261,10 @@ public class OSBUtils {
    }
    
    public static XmlObject getResourceCached(String StrResourceType, String StrResourcePath, Boolean BolStripComments) throws Exception {
-      
-      // Iizializza flag
-      Boolean BolCached = true;
-      
+
       // Determina chiave di caching della risorsa
       String StrCachingKey = StrResourceType+":"+StrResourcePath;
-      
+
       // Ricerca la risorsa in base all'indice fornito
       ResourceCacheEntry ObjEntry = resourceCache.get(StrCachingKey);
 
@@ -276,13 +273,15 @@ public class OSBUtils {
       
       // Se la risorsa non è cachata o è cambiata la legge e la mette in cache
       if ((ObjEntry==null)||(ObjEntry.timeStamp!=IntTimeStamp)) {
-         ObjEntry = new ResourceCacheEntry(getResource(StrResourceType,StrResourcePath,BolStripComments),IntTimeStamp);
-         resourceCache.put(StrCachingKey,ObjEntry);   
-         BolCached = false;                     
+
+         // Legge la risorsa, ne mette in cache il testo e restituisce direttamente il documento appena letto
+         XmlObject ObjResource = getResource(StrResourceType,StrResourcePath,BolStripComments);
+         resourceCache.put(StrCachingKey,new ResourceCacheEntry(ObjResource.xmlText(),IntTimeStamp));
+         return ObjResource;
       }
-      
-      // Restituisce la risorsa
-      return ObjEntry.resource;
+
+      // Restituisce un documento nuovo ricavato dal testo in cache (i commenti sono gia' stati rimossi in lettura, se richiesto)
+      return XmlObject.Factory.parse(ObjEntry.text);
    }
    
    // ==================================================================================================================================

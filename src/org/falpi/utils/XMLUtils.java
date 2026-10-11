@@ -64,8 +64,10 @@ public class XMLUtils {
 
       } finally {
 
-         // Chiude i cursori aperti, anche in caso di errore
+         // Chiude selezioni e cursori aperti, anche in caso di errore (le selezioni aperte restano agganciate al documento)
+         ObjSourceCursor.clearSelections();
          ObjSourceCursor.dispose();
+         ObjDestinationCursor.clearSelections();
          ObjDestinationCursor.dispose();
       }
    }
@@ -125,7 +127,8 @@ public class XMLUtils {
 
       } finally {
 
-         // Dealloca il cursore
+         // Chiude le selezioni e dealloca il cursore (le selezioni aperte restano agganciate al documento anche dopo il dispose)
+         ObjCursor.clearSelections();
          ObjCursor.dispose();
       }
 
@@ -153,7 +156,8 @@ public class XMLUtils {
 
       } finally {
 
-         // Dealloca il cursore
+         // Chiude le selezioni e dealloca il cursore (le selezioni aperte restano agganciate al documento anche dopo il dispose)
+         ObjCursor.clearSelections();
          ObjCursor.dispose();
       }
    }
@@ -188,7 +192,8 @@ public class XMLUtils {
 
       } finally {
 
-         // Dealloca il cursore
+         // Chiude le selezioni e dealloca il cursore (le selezioni aperte restano agganciate al documento anche dopo il dispose)
+         ObjCursor.clearSelections();
          ObjCursor.dispose();
       }
 
