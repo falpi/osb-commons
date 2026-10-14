@@ -24,7 +24,17 @@ public class StringUtils {
    // ==================================================================================================================================
    // Helper per functional programming
    // ==================================================================================================================================  
-   public interface TemplateFunction { String apply(String StrVariable,SuperMap ObjContext) throws Exception; }   
+   public interface TemplateFunction {
+
+      String apply(String StrVariable,SuperMap ObjContext) throws Exception;
+
+      // Variante con selettore opzionale (testo che segue il carattere '#' nel template, es. un'espressione xpath)
+      // Le funzioni che non supportano il selettore non devono ridefinirla: se il selettore e' presente generano eccezione
+      default String apply(String StrVariable,String StrSelector,SuperMap ObjContext) throws Exception {
+         if (StrSelector!=null) throw new Exception("selector not supported by template variable '"+StrVariable+"'");
+         return apply(StrVariable,ObjContext);
+      }
+   }
 
    // ==================================================================================================================================
    // Fonde le proprietà in un unica stringa
@@ -160,20 +170,32 @@ public class StringUtils {
       String StrTemplate;
       String StrVariableName;
       String StrVariableValue;
+      String StrSelector;
       Object ObjVariableValue;
       ArrayList ArrVariableValues;
-      
-      Pattern ObjPattern = Pattern.compile("(\\$\\{([^}]*)\\})");
+
+      // Individua i template ${...}: la graffa di chiusura racchiusa tra apici singoli o doppi non chiude il template (es. nei selettori xpath)
+      Pattern ObjPattern = Pattern.compile("(\\$\\{((?:[^}'\"]|'[^']*'|\"[^\"]*\")*)\\})");
       Matcher ObjMatcher = ObjPattern.matcher(StrText);
-      
+
       while (ObjMatcher.find()) {
-      
+
          StrTemplate = ObjMatcher.group(1);
          StrVariableName = ObjMatcher.group(2);
          StrVariableValue = null;
+         StrSelector = null;
 
-         if (!StrVariableName.matches("^[a-zA-Z_\\-]+(\\.[a-zA-Z_\\-]+)*(\\.\\*)?$")) {
-            throw new Exception("invalid template variable format '"+StrTemplate+"'");    
+         // Se presente separa il selettore opzionale, cioe' tutto quello che segue il primo carattere '#' (es. ${osb.context.header#./*:ID})
+         int IntSelectorIndex = StrVariableName.indexOf('#');
+         if (IntSelectorIndex>=0) {
+            StrSelector = StrVariableName.substring(IntSelectorIndex+1);
+            StrVariableName = StrVariableName.substring(0,IntSelectorIndex);
+         }
+
+         // Verifica il formato del nome della variabile e che l'eventuale selettore sia valorizzato
+         if ((!StrVariableName.matches("^[a-zA-Z_\\-]+(\\.[a-zA-Z_\\-]+)*(\\.\\*)?$"))||
+             ((StrSelector!=null)&&(StrSelector.trim().isEmpty()))) {
+            throw new Exception("invalid template variable format '"+StrTemplate+"'");
          }
          
          // Cerca la variabile tra le chiavi di contesto semplici
@@ -187,9 +209,10 @@ public class StringUtils {
          
          // Se sono funzioni le esegue, se è una stringa la converte, altrimenti genera eccezione
          if (ObjVariableValue instanceof String) {
+            if (StrSelector!=null) throw new Exception("selector not supported by template variable '"+StrVariableName+"'");
             StrVariableValue = (String) ObjVariableValue;
          } else if (ObjVariableValue instanceof TemplateFunction) {
-            StrVariableValue = ((TemplateFunction) ObjVariableValue).apply(StrVariableName,ObjContext);
+            StrVariableValue = ((TemplateFunction) ObjVariableValue).apply(StrVariableName,StrSelector,ObjContext);
          } else {
             throw new Exception("invalid template variable '"+StrTemplate+"'");               
          }

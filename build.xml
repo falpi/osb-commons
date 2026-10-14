@@ -2,8 +2,8 @@
 ##################################################################################################################################
 VERSIONING
 ##################################################################################################################################
-$Revision: 2121 $
-$Date: 2026-10-12 12:39:42 +0200 (Mon, 12 Oct 2026) $
+$Revision: 2129 $
+$Date: 2026-10-14 21:26:06 +0200 (Wed, 14 Oct 2026) $
 ##################################################################################################################################
 -->
 <project name="Build" default="all" basedir="." xmlns:if="ant:if" xmlns:unless="ant:unless">
@@ -158,7 +158,7 @@ $Date: 2026-10-12 12:39:42 +0200 (Mon, 12 Oct 2026) $
         <tstamp><format property="buildTimestamp" pattern="yyyyMMdd" /></tstamp> 
 
         <!-- versione della libreria -->
-        <property name="libraryVersion" value="1.1.1" />
+        <property name="libraryVersion" value="1.2.0" />
                         
         <!-- output file name -->    
         <property name="outputFilePrefix" value="osb-commons" />
